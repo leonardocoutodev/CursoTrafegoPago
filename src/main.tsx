@@ -625,6 +625,17 @@ function AdminPage() {
     finally { setRefreshing(false) }
   }
   useEffect(()=>{load()},[])
+  useEffect(()=>{
+    if(!modalMode) return
+    const previousOverflow=document.body.style.overflow
+    const close=(event:KeyboardEvent)=>{ if(event.key==='Escape') setModalMode(null) }
+    document.body.style.overflow='hidden'
+    window.addEventListener('keydown',close)
+    return()=>{
+      document.body.style.overflow=previousOverflow
+      window.removeEventListener('keydown',close)
+    }
+  },[modalMode])
   const filtered=useMemo(()=>{
     const term=search.trim().toLowerCase()
     const digits=normalizeCpf(search)
