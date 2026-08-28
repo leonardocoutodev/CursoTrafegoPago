@@ -64,6 +64,15 @@ function maskCpf(value: string) {
   return cpf.length===11 ? `***.***.***-${cpf.slice(-2)}` : 'CPF não informado'
 }
 
+function formatClock(value?: string | null) {
+  return value ? value.slice(0,5).replace(':','h') : '—'
+}
+
+function weekdayLabel(day?: number | null) {
+  const labels=['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado']
+  return typeof day==='number' && labels[day] ? labels[day] : 'Segunda-feira'
+}
+
 function validCpf(value: string) {
   const cpf=normalizeCpf(value)
   if(cpf.length!==11 || /^(\d)\1{10}$/.test(cpf)) return false
@@ -90,9 +99,9 @@ type StaffRole = 'owner' | 'professor' | 'coordenador' | 'suporte'
 interface Context {
   ok: boolean
   staff: null | { role: StaffRole; display_name?: string | null }
-  student: null | { id: string; full_name: string; status: string; avatar_url?: string | null; must_change_password?: boolean }
+  student: null | { id: string; full_name: string; status: string; avatar_url?: string | null; must_change_password?: boolean; onboarding_completed_at?: string | null }
   enrollment: null | { id: string; status: string; joined_at: string }
-  cohort: null | { id: string; name: string; status: string; starts_on?: string | null; start_time: string; end_time: string; location_text?: string | null }
+  cohort: null | { id: string; name: string; status: string; starts_on?: string | null; weekday?: number | null; start_time: string; end_time: string; location_text?: string | null }
   course: null | { id: string; title: string; subtitle?: string | null; workload_hours: number; expected_months: number; total_lessons: number; gate_mode: 'manual' }
 }
 
@@ -242,6 +251,7 @@ const api = {
   resetStudentPassword: (enrollmentId: string) =>
     invoke<ResetPasswordResult>({ action: 'admin_reset_student_password', enrollment_id: enrollmentId }),
   passwordChanged: () => invoke<{ ok: boolean; error?: string }>({ action: 'student_password_changed' }),
+  onboardingComplete: () => invoke<{ ok: boolean; error?: string; onboarding_completed_at?: string }>({ action: 'student_onboarding_complete' }),
   setAccess: (enrollmentId: string, lessonId: string, allowed: boolean) =>
     invoke<{ ok: boolean; error?: string; message?: string }>({
       action: 'admin_set_student_access',
@@ -488,6 +498,78 @@ function PasswordSetupPage({ name }: { name: string }) {
   </div>
 }
 
+function OnboardingPage({ context }: { context: Context }) {
+  const [step,setStep]=useState(0)
+  const [saving,setSaving]=useState(false)
+  const [error,setError]=useState('')
+  const firstName=context.student?.full_name.split(' ')[0] || 'Aluno'
+  const day=weekdayLabel(context.cohort?.weekday)
+  const time=`${formatClock(context.cohort?.start_time)}–${formatClock(context.cohort?.end_time)}`
+
+  const steps=[
+    {
+      eyebrow:'Bem-vindo à sua formação',
+      title:`Olá, ${firstName}. Esta é a sua Central.`,
+      text:'Aqui você acompanha sua evolução, acessa as aulas liberadas e encontra os materiais publicados pela equipe.',
+      icon:<GraduationCap size={28}/>,
+      bullets:['24 aulas organizadas em 6 módulos','48 horas de formação profissional','Progresso salvo na sua conta']
+    },
+    {
+      eyebrow:'Progressão supervisionada',
+      title:'Você sempre saberá o que pode estudar agora.',
+      text:'As aulas são abertas pela equipe no momento adequado. Concluir uma etapa registra seu progresso, mas não libera a próxima automaticamente.',
+      icon:<ShieldCheck size={28}/>,
+      bullets:['Aulas disponíveis aparecem em destaque','Aulas futuras ficam visíveis, mas bloqueadas','Nenhuma etapa avança sem autorização']
+    },
+    {
+      eyebrow:'Presencial + digital',
+      title:'A Central complementa seus encontros presenciais.',
+      text:`Sua turma se encontra ${day.toLowerCase()}, das ${time}. Use a Central para revisar, praticar e acompanhar sua jornada entre os encontros.`,
+      icon:<CalendarDays size={28}/>,
+      bullets:['Materiais aparecem conforme forem publicados','Atividades e desempenho ficam registrados aqui','Você pode acessar pelo celular ou computador']
+    }
+  ] as const
+
+  const current=steps[step]
+
+  const finish=async()=>{
+    setSaving(true)
+    setError('')
+    try{
+      const result=await api.onboardingComplete()
+      if(!result.ok) throw new Error('Não foi possível concluir sua apresentação.')
+      window.location.assign('/aluno')
+    }catch(e){
+      setError((e as Error).message || 'Não foi possível concluir agora.')
+      setSaving(false)
+    }
+  }
+
+  return <div className="onboarding-page">
+    <div className="onboarding-brand"><Brand/></div>
+    <main className="onboarding-card">
+      <div className="onboarding-progress" aria-label={`Etapa ${step+1} de ${steps.length}`}>
+        {steps.map((_,index)=><span key={index} className={index<=step?'active':''}/>)}
+      </div>
+      <span className="onboarding-icon">{current.icon}</span>
+      <span className="eyebrow">{current.eyebrow}</span>
+      <h1>{current.title}</h1>
+      <p>{current.text}</p>
+      <div className="onboarding-points">
+        {current.bullets.map(item=><span key={item}><CheckCircle2 size={17}/>{item}</span>)}
+      </div>
+      {error&&<div className="error" role="alert">{error}</div>}
+      <div className="onboarding-actions">
+        {step>0&&<button className="secondary" onClick={()=>setStep(step-1)}>Voltar</button>}
+        {step<steps.length-1
+          ? <button className="primary" onClick={()=>setStep(step+1)}>Continuar <ArrowRight size={17}/></button>
+          : <button className="primary" onClick={finish} disabled={saving}>{saving?'Preparando sua Central…':<>Entrar na Central <ArrowRight size={17}/></>}</button>}
+      </div>
+      <small>Etapa {step+1} de {steps.length}</small>
+    </main>
+  </div>
+}
+
 function LessonState({ lesson }: { lesson: LessonSummary }) {
   if (lesson.status === 'completed') return <span className="state done"><Check size={14}/> Concluída</span>
   if (lesson.can_open) return <span className="state open"><ArrowRight size={14}/> Disponível</span>
@@ -496,6 +578,7 @@ function LessonState({ lesson }: { lesson: LessonSummary }) {
 }
 
 function StudentPage() {
+  const location=useLocation()
   const [data,setData] = useState<StudentHome|null>(null)
   const [error,setError] = useState('')
   const [openModule,setOpenModule] = useState(1)
@@ -507,64 +590,155 @@ function StudentPage() {
   if (!data) return <Failure text={error}/>
 
   const firstName=data.student.full_name.split(' ')[0]
+  const view=location.hash.replace('#','') || 'overview'
+  const day=weekdayLabel(data.cohort.weekday)
+  const startTime=formatClock(data.cohort.start_time)
+  const endTime=formatClock(data.cohort.end_time)
+  const remaining=Math.max(0,data.progress.total_lessons-data.progress.completed_lessons)
+  const currentModule=data.modules.find(m=>m.lessons.some(l=>l.can_open || l.status==='in_progress'))
+    || data.modules.find(m=>m.lessons.some(l=>l.status!=='completed'))
+    || data.modules[data.modules.length-1]
+
+  const pageCopy={
+    overview:{eyebrow:'Sua jornada profissional',title:`Olá, ${firstName}.`,description:'Acompanhe sua evolução e veja o que está disponível para estudar agora.'},
+    formacao:{eyebrow:'Minha formação',title:'Sua trilha de aprendizagem',description:'Explore os seis módulos e acompanhe o estado de cada aula.'},
+    materiais:{eyebrow:'Biblioteca do curso',title:'Materiais',description:'Apostilas, planilhas, modelos e recursos aparecerão aqui conforme forem publicados.'},
+    desempenho:{eyebrow:'Minha evolução',title:'Desempenho',description:'Acompanhe seu progresso acadêmico ao longo da formação.'}
+  } as const
+  const copy=pageCopy[view as keyof typeof pageCopy] || pageCopy.overview
 
   return <Shell mode="student" name={data.student.full_name}>
-    <header className="page-head">
-      <div><span className="eyebrow">Sua jornada profissional</span><h1>Olá, {firstName}.</h1><p>Continue no seu ritmo. A próxima etapa será liberada pelo professor no momento certo.</p></div>
-      <div className="meta"><span><CalendarDays size={17}/> Segunda-feira</span><span><Clock3 size={17}/> 18h–20h</span></div>
-    </header>
+    <div className="student-page">
+      <header className="page-head student-head">
+        <div><span className="eyebrow">{copy.eyebrow}</span><h1>{copy.title}</h1><p>{copy.description}</p></div>
+        <div className="meta"><span><CalendarDays size={17}/>{day}</span><span><Clock3 size={17}/>{startTime}–{endTime}</span></div>
+      </header>
 
-    <section className="hero-grid">
-      <article className="course-hero">
-        <div><span className="pill dark">Formação em andamento</span><h2>{data.course.title}</h2><p>{data.course.subtitle}</p>
-          <div className="facts"><span>{data.course.workload_hours}h</span><span>{data.course.total_lessons} aulas</span><span>{data.course.expected_months} meses</span></div>
-          {next ? <Link className="primary" to={'/aluno/aula/'+next.id}>Continuar na aula {next.global_order}<ArrowRight size={18}/></Link> : <span className="waiting"><ShieldCheck size={18}/> Aguardando próxima liberação</span>}
-        </div>
-        <ProgressRing value={data.progress.completed_percent}/>
-      </article>
-      <article className="schedule">
-        <span className="pill">Turma 01</span><h3>Seu encontro presencial</h3>
-        <div><CalendarDays/><span><strong>Segunda-feira</strong><small>{data.cohort.starts_on ? new Date(data.cohort.starts_on+'T12:00:00').toLocaleDateString('pt-BR') : 'Início após confirmação da turma'}</small></span></div>
-        <div><Clock3/><span><strong>18h às 20h</strong><small>Prática e acompanhamento</small></span></div>
-        <div><MapPin/><span><strong>{data.cohort.location_text || 'Live Connect'}</strong><small>Aula presencial</small></span></div>
-      </article>
-    </section>
-
-    {data.announcements[0] && <div className="announcement"><Sparkles size={19}/><div><strong>{data.announcements[0].title}</strong><p>{data.announcements[0].body}</p></div></div>}
-
-    <section id="formacao" className="block">
-      <div className="block-head">
-        <div><span className="eyebrow">Minha formação</span><h2>Sua trilha completa</h2><p>Você enxerga toda a jornada, mas cada etapa abre somente com autorização.</p></div>
-        <div className="stats"><span><strong>{data.progress.completed_lessons}</strong> concluídas</span><span><strong>{data.progress.available_lessons}</strong> liberadas</span><span><strong>{data.progress.total_lessons}</strong> total</span></div>
-      </div>
-
-      <div className="modules">{data.modules.map(m=>{
-        const opened=openModule===m.module_order
-        const done=m.lessons.filter(l=>l.status==='completed').length
-        return <article className={'module '+(opened?'opened':'')} key={m.id}>
-          <button className="module-head" onClick={()=>setOpenModule(opened?0:m.module_order)} aria-expanded={opened}>
-            <span className="number">{String(m.module_order).padStart(2,'0')}</span>
-            <span className="module-title"><strong>{m.title}</strong><small>{m.summary}</small></span>
-            <span className="module-count"><strong>{done}/{m.lessons.length}</strong><small>concluídas</small></span>
-            <ChevronDown size={20}/>
-          </button>
-          {opened && <div className="lesson-list">{m.lessons.map(l=>{
-            const row=<div className={'lesson-row '+(l.can_open?'available ':'')+(l.status==='completed'?'completed':'')}>
-              <span className="lesson-no">{String(l.global_order).padStart(2,'0')}</span>
-              <span className="lesson-copy"><strong>{l.title}</strong><small><Clock3 size={13}/>{l.estimated_minutes} min {l.lock_reason ? '• '+l.lock_reason : ''}</small></span>
-              <LessonState lesson={l}/>
+      {view==='overview'&&<>
+        <section className="hero-grid">
+          <article className="course-hero">
+            <div>
+              <span className="pill dark">{data.progress.completed_lessons ? 'Formação em andamento' : 'Sua formação começa aqui'}</span>
+              <h2>{data.course.title}</h2>
+              <p>{data.course.subtitle}</p>
+              <div className="facts"><span>{data.course.workload_hours}h</span><span>{data.course.total_lessons} aulas</span><span>{data.course.expected_months} meses</span></div>
+              {next
+                ? <Link className="primary" to={'/aluno/aula/'+next.id}>Continuar na aula {next.global_order}<ArrowRight size={18}/></Link>
+                : <div className="hero-actions">
+                    <span className="waiting"><ShieldCheck size={18}/> Aguardando próxima liberação</span>
+                    <Link className="hero-link" to="/aluno#formacao">Ver minha trilha <ArrowRight size={15}/></Link>
+                  </div>}
             </div>
-            return l.can_open ? <Link className="lesson-link" key={l.id} to={'/aluno/aula/'+l.id}>{row}</Link> : <div key={l.id}>{row}</div>
-          })}</div>}
-        </article>
-      })}</div>
-    </section>
+            <ProgressRing value={data.progress.completed_percent}/>
+          </article>
 
-    <section className="cards">
-      <article><ShieldCheck/><h3>Progressão supervisionada</h3><p>Concluir uma aula registra sua evolução, mas nunca libera automaticamente a próxima.</p></article>
-      <article id="materiais"><BookOpen/><h3>Materiais</h3><p>Apostilas, planilhas, modelos e arquivos surgirão conforme forem publicados.</p></article>
-      <article id="desempenho"><Trophy/><h3>Desempenho</h3><p>Seu histórico de atividades, progresso e projeto final será consolidado aqui.</p></article>
-    </section>
+          <article className="schedule">
+            <span className="pill">{data.cohort.name}</span><h3>Seu encontro presencial</h3>
+            <div><CalendarDays/><span><strong>{day}</strong><small>{data.cohort.starts_on ? new Date(data.cohort.starts_on+'T12:00:00').toLocaleDateString('pt-BR') : 'Início após confirmação da turma'}</small></span></div>
+            <div><Clock3/><span><strong>{startTime} às {endTime}</strong><small>Prática e acompanhamento</small></span></div>
+            <div><MapPin/><span><strong>{data.cohort.location_text || 'Live Connect'}</strong><small>Aula presencial</small></span></div>
+          </article>
+        </section>
+
+        {data.announcements[0]&&<div className="announcement"><Sparkles size={19}/><div><strong>{data.announcements[0].title}</strong><p>{data.announcements[0].body}</p></div></div>}
+
+        <section className="student-overview-grid">
+          <article className="student-focus-card">
+            <span className="overview-icon"><ArrowRight size={21}/></span>
+            <span className="eyebrow">Próximo passo</span>
+            {next ? <>
+              <h3>Aula {String(next.global_order).padStart(2,'0')} · {next.title}</h3>
+              <p>Esta aula está liberada e pronta para você continuar sua formação.</p>
+              <Link className="primary" to={'/aluno/aula/'+next.id}>Abrir aula <ArrowRight size={16}/></Link>
+            </> : <>
+              <h3>Você está em dia com o que foi liberado</h3>
+              <p>A próxima etapa aparecerá aqui assim que a equipe fizer a liberação.</p>
+              <span className="calm-status"><ShieldCheck size={16}/> Nenhuma ação pendente agora</span>
+            </>}
+          </article>
+
+          <article className="student-summary-card">
+            <span className="eyebrow">Progresso</span>
+            <div className="student-progress-numbers">
+              <span><strong>{data.progress.completed_lessons}</strong><small>concluídas</small></span>
+              <span><strong>{data.progress.available_lessons}</strong><small>liberadas</small></span>
+              <span><strong>{remaining}</strong><small>restantes</small></span>
+            </div>
+            <Link className="text-link" to="/aluno#desempenho">Ver desempenho <ArrowRight size={15}/></Link>
+          </article>
+
+          <article className="student-summary-card">
+            <span className="eyebrow">Módulo atual</span>
+            <h3>{currentModule?.title || 'Formação completa'}</h3>
+            <p>{currentModule?.summary || 'Sua trilha acadêmica está organizada em seis módulos.'}</p>
+            <Link className="text-link" to="/aluno#formacao">Abrir formação <ArrowRight size={15}/></Link>
+          </article>
+        </section>
+      </>}
+
+      {view==='formacao'&&<section id="formacao" className="student-workspace">
+        <div className="learning-status-grid">
+          <span><strong>{data.progress.completed_lessons}</strong><small>Concluídas</small></span>
+          <span><strong>{data.progress.available_lessons}</strong><small>Liberadas</small></span>
+          <span><strong>{remaining}</strong><small>Restantes</small></span>
+          <span><strong>{Math.round(data.progress.completed_percent)}%</strong><small>Progresso total</small></span>
+        </div>
+
+        <div className="formation-intro">
+          <ShieldCheck size={18}/>
+          <span><strong>Progressão supervisionada.</strong> Você enxerga toda a jornada, mas cada aula só abre quando estiver publicada e liberada pela equipe.</span>
+        </div>
+
+        <div className="modules">{data.modules.map(m=>{
+          const opened=openModule===m.module_order
+          const done=m.lessons.filter(l=>l.status==='completed').length
+          const available=m.lessons.filter(l=>l.can_open && l.status!=='completed').length
+          return <article className={'module '+(opened?'opened':'')} key={m.id}>
+            <button className="module-head" onClick={()=>setOpenModule(opened?0:m.module_order)} aria-expanded={opened}>
+              <span className="number">{String(m.module_order).padStart(2,'0')}</span>
+              <span className="module-title"><strong>{m.title}</strong><small>{m.summary}</small></span>
+              <span className="module-count"><strong>{done}/{m.lessons.length}</strong><small>{available?available+' disponível':'concluídas'}</small></span>
+              <ChevronDown size={20}/>
+            </button>
+            {opened&&<div className="lesson-list">{m.lessons.map(l=>{
+              const row=<div className={'lesson-row '+(l.can_open?'available ':'')+(l.status==='completed'?'completed':'')}>
+                <span className="lesson-no">{String(l.global_order).padStart(2,'0')}</span>
+                <span className="lesson-copy"><strong>{l.title}</strong><small><Clock3 size={13}/>{l.estimated_minutes} min {l.lock_reason ? '• '+l.lock_reason : ''}</small></span>
+                <LessonState lesson={l}/>
+              </div>
+              return l.can_open ? <Link className="lesson-link" key={l.id} to={'/aluno/aula/'+l.id}>{row}</Link> : <div key={l.id}>{row}</div>
+            })}</div>}
+          </article>
+        })}</div>
+      </section>}
+
+      {view==='materiais'&&<section id="materiais" className="student-workspace">
+        <div className="materials-hero">
+          <span className="materials-icon"><BookOpen size={25}/></span>
+          <div><span className="eyebrow">Biblioteca progressiva</span><h2>Seus materiais acompanham as aulas.</h2><p>Os recursos complementares ficam disponíveis conforme a equipe publica o conteúdo de cada etapa.</p></div>
+        </div>
+        <div className="student-resource-grid">
+          <article><BookOpen/><h3>Apostilas e PDFs</h3><p>Materiais de leitura, guias e referências da formação aparecerão aqui.</p><span className="resource-state"><Clock3 size={15}/> Aguardando publicação</span></article>
+          <article><GraduationCap/><h3>Modelos e ferramentas</h3><p>Planilhas, templates, checklists e arquivos práticos serão organizados por módulo.</p><span className="resource-state"><Clock3 size={15}/> Aguardando publicação</span></article>
+          <article><Sparkles/><h3>Complementos</h3><p>Links, exemplos e recursos extras poderão ser adicionados ao longo da turma.</p><span className="resource-state"><Clock3 size={15}/> Aguardando publicação</span></article>
+        </div>
+        <div className="formation-intro"><ShieldCheck size={18}/><span>Nenhum material é exibido antes da publicação correspondente. Isso mantém sua jornada organizada e sincronizada com a turma.</span></div>
+      </section>}
+
+      {view==='desempenho'&&<section id="desempenho" className="student-workspace">
+        <div className="performance-hero">
+          <div><span className="eyebrow">Progresso acadêmico</span><h2>{Math.round(data.progress.completed_percent)}% da formação concluída</h2><p>Seu desempenho será enriquecido com atividades e projeto final nas próximas etapas do produto.</p></div>
+          <ProgressRing value={data.progress.completed_percent}/>
+        </div>
+        <div className="performance-grid">
+          <article><CheckCircle2/><strong>{data.progress.completed_lessons}</strong><span>Aulas concluídas</span><small>de {data.progress.total_lessons} aulas</small></article>
+          <article><BookOpen/><strong>{data.progress.available_lessons}</strong><span>Aulas liberadas</span><small>prontas ou autorizadas</small></article>
+          <article><Trophy/><strong>—</strong><span>Atividades avaliadas</span><small>serão adicionadas na Fase 7.3</small></article>
+          <article><GraduationCap/><strong>—</strong><span>Projeto final</span><small>estrutura será adicionada na Fase 7.3</small></article>
+        </div>
+        <div className="performance-note"><ShieldCheck size={18}/><div><strong>Seu progresso é registrado automaticamente.</strong><p>Concluir uma aula atualiza seu histórico, mas a próxima etapa permanece sob liberação da equipe.</p></div></div>
+      </section>}
+    </div>
   </Shell>
 }
 
@@ -987,9 +1161,14 @@ function SessionRouter({session}:{session:Session}) {
   const staff=Boolean(context.staff)
   const student=Boolean(context.student&&context.enrollment)
   const mustChangePassword=Boolean(context.student?.must_change_password)
+  const onboardingComplete=Boolean(context.student?.onboarding_completed_at)
 
   if(student && mustChangePassword && !staff){
     return <Routes><Route path="*" element={<PasswordSetupPage name={context.student?.full_name || 'Aluno'}/>}/></Routes>
+  }
+
+  if(student && !onboardingComplete && !staff){
+    return <Routes><Route path="*" element={<OnboardingPage context={context}/>}/></Routes>
   }
 
   return <Routes>
