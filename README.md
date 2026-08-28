@@ -42,3 +42,7 @@ As variáveis de frontend estão documentadas em `.env.example`. A chave utiliza
 ## Estado atual
 
 A infraestrutura acadêmica já existe no Supabase e a Central está preparada para receber o conteúdo das aulas em uma etapa posterior. Nenhuma aula nasce liberada por padrão.
+## Deploy
+
+Deploy de produção automatizado pelo Cloudflare Workers a partir da branch `main`.
+
