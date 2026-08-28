@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <title>Homologação de Aulas | Live Connect</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#112b4b;background:#f4f7fb;line-height:1.5}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 85% 0,rgba(25,106,255,.10),transparent 28%),#f4f7fb}button,select{font:inherit}a{color:inherit;text-decoration:none}.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:13px clamp(16px,4vw,50px);border-bottom:1px solid #dce5ef;background:rgba(255,255,255,.94);backdrop-filter:blur(16px)}.brand{display:flex;align-items:center;gap:14px}.brand img{width:155px}.brand span{padding-left:14px;border-left:1px solid #d9e2ec;color:#637891;font-size:.72rem;font-weight:800}.back{display:inline-flex;align-items:center;min-height:38px;padding:0 13px;border:1px solid #d7e1ec;border-radius:10px;background:#fff;color:#415c79;font-size:.72rem;font-weight:800}.page{width:min(1220px,calc(100% - 30px));margin:0 auto;padding:32px 0 60px}.head{display:flex;justify-content:space-between;align-items:end;gap:22px;margin-bottom:20px}.eyebrow{color:#0b5cff;font-size:.63rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.head h1{margin:7px 0 5px;font-size:clamp(1.8rem,3vw,2.55rem);line-height:1.03;letter-spacing:-.045em}.head p{max-width:720px;margin:0;color:#6b8097;font-size:.8rem}.status{display:inline-flex;align-items:center;gap:7px;padding:9px 11px;border-radius:10px;background:#eaf7f1;color:#08744f;font-size:.68rem;font-weight:850}.dot{width:7px;height:7px;border-radius:999px;background:currentColor}.toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-bottom:18px;padding:14px;border:1px solid #dde6f0;border-radius:15px;background:#fff}.toolbar select{width:100%;min-height:43px;padding:0 12px;border:1px solid #d8e2ed;border-radius:10px;background:#fff;color:#183553}.toolbar button{min-height:43px;padding:0 16px;border:0;border-radius:10px;background:#0b5cff;color:#fff;font-weight:850;cursor:pointer}.notice{display:flex;gap:10px;margin-bottom:17px;padding:12px 14px;border:1px solid #cfe0f7;border-radius:12px;background:#f5f9ff;color:#506b89;font-size:.7rem}.notice strong{color:#244462}.lesson{display:none}.lesson.active{display:block}.lesson-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:17px}.lesson-head h2{margin:7px 0 7px;font-size:clamp(1.9rem,3vw,2.65rem);line-height:1.05;letter-spacing:-.045em}.lesson-head p{max-width:760px;margin:0;color:#6b8097;font-size:.82rem}.meta{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.meta span{padding:8px 10px;border:1px solid #dce5ef;border-radius:9px;background:#fff;color:#506780;font-size:.65rem;font-weight:800}.preview-badge{color:#7b5800!important;background:#fff7d8!important;border-color:#ffe287!important}.layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:16px}.content,.side{border:1px solid #dee7f1;border-radius:20px;background:#fff;box-shadow:0 8px 28px rgba(13,41,78,.045)}.content{padding:27px}.section{margin-bottom:24px}.section h3{margin:8px 0 12px;font-size:1.05rem}.objectives{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.objective{display:flex;gap:8px;padding:11px;border:1px solid #e4ebf3;border-radius:11px;background:#f9fbfd;color:#48627e;font-size:.72rem}.check{color:#0b8059;font-weight:900}.empty{min-height:290px;display:grid;place-content:center;place-items:center;padding:26px;border:1px dashed #cbd9e8;border-radius:15px;background:linear-gradient(180deg,#fafcff,#f5f9fe);text-align:center}.empty .icon{width:54px;height:54px;display:grid;place-items:center;border-radius:15px;background:#eaf2ff;color:#0b5cff;font-size:1.5rem}.empty h3{margin:13px 0 5px}.empty p{max-width:480px;margin:0;color:#72859a;font-size:.73rem}.json{overflow:auto;max-height:560px;margin:0;padding:16px;border-radius:13px;background:#10233f;color:#dce9f9;font-size:.7rem}.side-wrap{display:grid;gap:12px;align-content:start}.side{padding:18px}.side h3{margin:7px 0 12px;font-size:.92rem}.item{display:flex;gap:9px;padding:10px 0;border-top:1px solid #edf2f7}.item:first-of-type{border-top:0}.item strong{display:block;font-size:.7rem}.item small{display:block;color:#8192a5;font-size:.62rem}.empty-side{margin:0;padding:12px;border-radius:10px;background:#f7f9fc;color:#7b8da1;font-size:.68rem}.finish{margin-top:15px;padding:14px;border:1px solid #dce7f4;border-radius:13px;background:#f7faff;color:#536d89;font-size:.7rem}.finish strong{display:block;color:#274966;margin-bottom:3px}.skeleton,.error{padding:28px;border:1px solid #dce5ef;border-radius:18px;background:#fff;text-align:center}.skeleton{color:#6d8197}.error{display:none;color:#9a2b2b;background:#fff7f7;border-color:#f2cccc}.error.active{display:block}@media(max-width:880px){.layout{grid-template-columns:1fr}.head,.lesson-head{display:grid}.meta{justify-content:flex-start}.objectives{grid-template-columns:1fr}}@media(max-width:620px){.top{padding:11px 14px}.brand span{display:none}.brand img{width:135px}.page{width:min(100% - 22px,1220px);padding-top:22px}.toolbar{grid-template-columns:1fr}.content{padding:18px}.lesson-head h2{font-size:2rem}}
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><img src="/logo-live-connect.svg" alt="Live Connect Escola de Profissões"><span>Homologação interna</span></div>
+    <a class="back" href="/admin#estrutura">Voltar ao admin</a>
+  </header>
+  <main class="page">
+    <div class="head">
+      <div><span class="eyebrow">Fase 7.2 · QA visual</span><h1>Prévia segura das aulas</h1><p>Visualize qualquer uma das 24 aulas sem publicar conteúdo, liberar acesso para aluno ou alterar progresso.</p></div>
+      <span class="status"><span class="dot"></span> Modo de homologação</span>
+    </div>
+    <div class="notice"><strong>Ambiente interno.</strong><span>Esta prévia exige uma sessão ativa da equipe. O botão de conclusão fica desativado e nenhuma alteração acadêmica é executada.</span></div>
+    <div class="toolbar"><select id="lessonSelect" aria-label="Escolha a aula"><option>Carregando estrutura…</option></select><button id="openBtn" type="button">Abrir prévia</button></div>
+    <div id="loading" class="skeleton">Validando sua sessão e carregando as aulas…</div>
+    <div id="error" class="error"></div>
+    <section id="lesson" class="lesson"></section>
+  </main>
+<script type="module">
+  const CONFIG_URL='https://utfxjadpntvbrhnkghbf.supabase.co/functions/v1/gestor-trafego-config';
+  const API_URL='https://utfxjadpntvbrhnkghbf.supabase.co/functions/v1/gestor-trafego-api';
+  const $=s=>document.querySelector(s);
+  const select=$('#lessonSelect'), loading=$('#loading'), errorBox=$('#error'), lessonBox=$('#lesson');
+  let config=null,token='',dashboard=null;
+
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function fail(message){loading.style.display='none';lessonBox.classList.remove('active');errorBox.textContent=message;errorBox.classList.add('active')}
+  async function invoke(body){
+    const r=await fetch(API_URL,{method:'POST',headers:{apikey:config.publishableKey,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(data.message||data.error||'Falha ao consultar a Central.');
+    return data;
+  }
+  function storedSession(ref){
+    const key=`sb-${ref}-auth-token`;
+    try{
+      const raw=localStorage.getItem(key);
+      if(!raw)return null;
+      const parsed=JSON.parse(raw);
+      return parsed?.access_token?parsed:parsed?.currentSession||null;
+    }catch{return null}
+  }
+  function materialLabel(type){return({pdf:'PDF',link:'Link',spreadsheet:'Planilha',template:'Modelo',image:'Imagem',video:'Vídeo',other:'Arquivo'})[type]||type||'Recurso'}
+  function render(data){
+    const l=data.lesson;
+    const objectives=Array.isArray(l.objectives)?l.objectives:[];
+    const content=Array.isArray(l.content)?l.content:[];
+    const materials=Array.isArray(data.materials)?data.materials:[];
+    const assignments=Array.isArray(data.assignments)?data.assignments:[];
+    lessonBox.innerHTML=`
+      <header class="lesson-head">
+        <div><span class="eyebrow">Módulo ${esc(l.module.module_order)} · Aula ${String(l.global_order).padStart(2,'0')}</span><h2>${esc(l.title)}</h2><p>${esc(l.summary||'O conteúdo pedagógico detalhado será inserido antes da publicação desta aula.')}</p></div>
+        <div class="meta"><span>${esc(l.estimated_minutes)} min</span><span>Estado: ${esc(l.publish_status)}</span><span class="preview-badge">Prévia da equipe</span></div>
+      </header>
+      <div class="layout">
+        <article class="content">
+          ${objectives.length?`<section class="section"><span class="eyebrow">O que você vai aprender</span><h3>Objetivos desta aula</h3><div class="objectives">${objectives.map(x=>`<div class="objective"><span class="check">✓</span><span>${esc(x)}</span></div>`).join('')}</div></section>`:''}
+          ${content.length?`<section class="section"><span class="eyebrow">Conteúdo da aula</span><h3>Estrutura didática</h3><pre class="json">${esc(JSON.stringify(content,null,2))}</pre></section>`:`<div class="empty"><span class="icon">▤</span><h3>Conteúdo em preparação</h3><p>A estrutura da experiência já está pronta. O conteúdo didático será inserido na etapa acadêmica sem precisar redesenhar esta página.</p></div>`}
+          <div class="finish"><strong>Conclusão desativada na homologação</strong>Na conta do aluno, esta área registra a aula como concluída. Nesta prévia nenhuma ação é enviada ao backend.</div>
+        </article>
+        <aside class="side-wrap">
+          <div class="side"><span class="eyebrow">Materiais</span><h3>Recursos desta aula</h3>${materials.length?materials.map(m=>`<div class="item"><span>▧</span><span><strong>${esc(m.title)}</strong><small>${esc(materialLabel(m.material_type))}</small></span></div>`).join(''):`<p class="empty-side">Nenhum material cadastrado ainda.</p>`}</div>
+          <div class="side"><span class="eyebrow">Atividades</span><h3>Prática e entregas</h3>${assignments.length?assignments.map(a=>`<div class="item"><span>✓</span><span><strong>${esc(a.title)}</strong><small>${a.required?'Obrigatória':'Complementar'} · ${esc(a.publish_status||'rascunho')}</small></span></div>`).join(''):`<p class="empty-side">Nenhuma atividade cadastrada ainda.</p>`}</div>
+          <div class="side"><span class="eyebrow">Regra acadêmica</span><h3>Progressão protegida</h3><p class="empty-side">Mesmo após concluir uma aula, a próxima continua aguardando liberação manual da equipe.</p></div>
+        </aside>
+      </div>`;
+    loading.style.display='none';errorBox.classList.remove('active');lessonBox.classList.add('active');
+  }
+  async function openSelected(){
+    const id=select.value;if(!id)return;
+    lessonBox.classList.remove('active');loading.style.display='block';loading.textContent='Montando a prévia da aula…';
+    try{render(await invoke({action:'admin_lesson_preview',lesson_id:id}))}catch(e){fail(e.message)}
+  }
+  async function init(){
+    try{
+      const c=await fetch(CONFIG_URL,{cache:'no-store'});config=await c.json();
+      if(!config?.publishableKey)throw new Error('Configuração pública indisponível.');
+      const ref=new URL(config.supabaseUrl).hostname.split('.')[0];
+      const session=storedSession(ref);
+      if(!session?.access_token){location.href='/login';return}
+      token=session.access_token;
+      dashboard=await invoke({action:'admin_dashboard'});
+      if(!dashboard?.ok)throw new Error('Acesso reservado à equipe.');
+      const options=[];
+      for(const m of dashboard.modules||[])for(const l of m.lessons||[])options.push(`<option value="${esc(l.id)}">Aula ${String(l.global_order).padStart(2,'0')} · ${esc(l.title)} — ${esc(l.publish_status)}</option>`);
+      select.innerHTML=options.join('');
+      if(!options.length)throw new Error('Nenhuma aula encontrada.');
+      await openSelected();
+    }catch(e){fail(e.message||'Não foi possível abrir a homologação.')}
+  }
+  $('#openBtn').addEventListener('click',openSelected);
+  select.addEventListener('change',openSelected);
+  init();
+</script>
+</body>
+</html>
