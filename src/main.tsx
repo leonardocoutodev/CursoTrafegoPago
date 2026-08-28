@@ -640,7 +640,7 @@ function AdminPage() {
     overview: { eyebrow:'Central da equipe', title:'Gestor de Tráfego Pago', description:'Acompanhe os indicadores essenciais e acesse rapidamente cada frente da formação.' },
     turma: { eyebrow:'Gestão da turma', title:'Turma 01', description:'Consulte alunos, progresso e abra o controle individual de cada matrícula.' },
     liberacao: { eyebrow:'Controle acadêmico', title:'Liberações', description:'Gerencie a progressão manual das aulas com segurança e rastreabilidade.' },
-    estrutura: { eyebrow:'Estrutura acadêmica', title:'6 módulos · 24 aulas', description:'Acompanhe a organização da formação e o status de publicação de cada aula.' }
+    estrutura: { eyebrow:'Estrutura acadêmica', title:`${data?.modules.length || 0} módulos · ${data?.course.total_lessons || 0} aulas`, description:'Acompanhe a organização da formação e o status de publicação de cada aula.' }
   } as const
   const currentCopy = viewCopy[view as keyof typeof viewCopy] || viewCopy.overview
   const canManageStudents = data?.role==='owner' || data?.role==='coordenador'
@@ -786,7 +786,7 @@ function AdminPage() {
         <div><span className="eyebrow">Acompanhamento individual</span><h1>{student.student.full_name}</h1><p>Controle o acesso às aulas e gerencie a credencial deste aluno.</p></div>
         <div className="head-actions">
           {canManageStudents&&<button className="secondary compact" onClick={resetPassword} disabled={busy==='reset-password'}><KeyRound size={16}/>{busy==='reset-password'?'Gerando…':'Redefinir senha'}</button>}
-          <span className="pill">{student.lessons.filter(l=>l.status==='completed').length}/24 concluídas</span>
+          <span className="pill">{student.lessons.filter(l=>l.status==='completed').length}/{data.course.total_lessons} concluídas</span>
         </div>
       </header>
       {studentDialog}
@@ -827,7 +827,7 @@ function AdminPage() {
         <section className="kpis">
           <article><UsersRound/><span><strong>{data.students.length}/{data.cohort.capacity}</strong><small>alunos na turma</small></span></article>
           <article><GraduationCap/><span><strong>{data.students.filter(s=>s.enrollment_status==='active').length}</strong><small>matrículas ativas</small></span></article>
-          <article><BookOpen/><span><strong>{publishedLessons}/24</strong><small>aulas publicadas</small></span></article>
+          <article><BookOpen/><span><strong>{publishedLessons}/{data.course.total_lessons}</strong><small>aulas publicadas</small></span></article>
           <article><Clock3/><span><strong>Seg · 18h</strong><small>encontro presencial</small></span></article>
         </section>
 
@@ -853,7 +853,7 @@ function AdminPage() {
           <article className="overview-card">
             <span className="overview-icon"><BookOpen size={22}/></span>
             <span className="eyebrow">Conteúdo</span>
-            <h3>{publishedLessons} de 24 aulas publicadas</h3>
+            <h3>{publishedLessons} de {data.course.total_lessons} aulas publicadas</h3>
             <p>A estrutura já está organizada em seis módulos e pronta para receber o conteúdo pedagógico.</p>
             <Link className="text-link" to="/admin#estrutura">Ver estrutura <ArrowRight size={15}/></Link>
           </article>
@@ -918,10 +918,10 @@ function AdminPage() {
 
       {view==='estrutura' && <section id="estrutura" className="workspace-card">
         <div className="structure-summary">
-          <div><strong>6</strong><small>módulos</small></div>
-          <div><strong>24</strong><small>aulas</small></div>
+          <div><strong>{data.modules.length}</strong><small>módulos</small></div>
+          <div><strong>{data.course.total_lessons}</strong><small>aulas</small></div>
           <div><strong>{publishedLessons}</strong><small>publicadas</small></div>
-          <div><strong>{24-publishedLessons}</strong><small>em preparação</small></div>
+          <div><strong>{Math.max(0,data.course.total_lessons-publishedLessons)}</strong><small>em preparação</small></div>
         </div>
         <div className="module-grid">{data.modules.map(m=>
           <article className="admin-module" key={m.id}>
