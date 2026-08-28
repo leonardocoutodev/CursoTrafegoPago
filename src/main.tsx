@@ -204,9 +204,29 @@ interface ResetPasswordResult {
   temporary_password?: string
 }
 
+type ApiError = Error & { code?: string }
+
 async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke('gestor-trafego-api', { body })
-  if (error) throw new Error(error.message || 'Falha ao comunicar com a Central.')
+  if (error) {
+    let code = ''
+    let message = error.message || 'Falha ao comunicar com a Central.'
+    const context = (error as unknown as { context?: Response }).context
+
+    if (context && typeof context.clone === 'function') {
+      try {
+        const payload = await context.clone().json() as { error?: string; message?: string }
+        code = payload.error || ''
+        message = payload.message || code || message
+      } catch {
+        // Mantém a mensagem original quando a resposta não é JSON.
+      }
+    }
+
+    const apiError = new Error(message) as ApiError
+    apiError.code = code
+    throw apiError
+  }
   return data as T
 }
 
@@ -675,14 +695,14 @@ function AdminPage() {
   }
 
   const friendlyStudentError=(code?:string,message?:string)=>{
-    if(message) return message
     if(code==='cohort_full') return 'A Turma 01 já atingiu o limite de 10 alunos.'
     if(code==='staff_account_cannot_be_student') return 'Este acesso pertence à equipe e não pode ser matriculado como aluno.'
     if(code==='invalid_cpf') return 'Informe um CPF válido.'
     if(code==='cpf_already_linked_to_another_user') return 'Este CPF já está vinculado a outro acesso.'
     if(code==='auth_user_conflict') return 'Já existe um acesso técnico para este CPF. Tente novamente.'
     if(code==='student_management_permission_required') return 'Seu perfil não possui permissão para cadastrar alunos.'
-    return 'Não foi possível concluir o cadastro. Tente novamente.'
+    if(code==='auth_user_create_failed') return 'Não foi possível criar o acesso do aluno agora. Tente novamente.'
+    return message && !message.includes('non-2xx') ? message : 'Não foi possível concluir o cadastro. Tente novamente.'
   }
 
   const openCreate=()=>{
@@ -710,7 +730,8 @@ function AdminPage() {
       setModalMode('credentials')
       setData(await api.admin())
     }catch(e){
-      setError((e as Error).message)
+      const err=e as ApiError
+      setError(friendlyStudentError(err.code,err.message))
     }finally{
       setCreating(false)
     }
