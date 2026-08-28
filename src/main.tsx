@@ -5,8 +5,8 @@ import { createClient, type Session } from '@supabase/supabase-js'
 import {
   ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2,
   ChevronDown, ChevronRight, Clock3, GraduationCap, LayoutDashboard,
-  LockKeyhole, LogOut, MapPin, RefreshCw, Search, ShieldCheck, Sparkles, Trophy,
-  UsersRound
+  Copy, KeyRound, LockKeyhole, LogOut, MapPin, Plus, RefreshCw, Search, ShieldCheck, Sparkles, Trophy,
+  UserPlus, UsersRound, X
 } from 'lucide-react'
 import './styles.css'
 
@@ -53,7 +53,7 @@ type StaffRole = 'owner' | 'professor' | 'coordenador' | 'suporte'
 interface Context {
   ok: boolean
   staff: null | { role: StaffRole; display_name?: string | null }
-  student: null | { id: string; full_name: string; status: string; avatar_url?: string | null }
+  student: null | { id: string; full_name: string; status: string; avatar_url?: string | null; must_change_password?: boolean }
   enrollment: null | { id: string; status: string; joined_at: string }
   cohort: null | { id: string; name: string; status: string; starts_on?: string | null; start_time: string; end_time: string; location_text?: string | null }
   course: null | { id: string; title: string; subtitle?: string | null; workload_hours: number; expected_months: number; total_lessons: number; gate_mode: 'manual' }
@@ -116,7 +116,7 @@ interface AdminDashboard {
   role: string
   course: { title: string; subtitle?: string | null; workload_hours: number; expected_months: number; total_lessons: number; gate_mode: string }
   cohort: { id: string; name: string; status: string; capacity: number; starts_on?: string | null; start_time: string; end_time: string }
-  students: Array<{ enrollment_id: string; full_name: string; email?: string | null; whatsapp?: string | null; enrollment_status: string; completed_lessons: number; available_lessons: number }>
+  students: Array<{ enrollment_id: string; full_name: string; email?: string | null; whatsapp?: string | null; enrollment_status: string; completed_lessons: number; available_lessons: number; must_change_password?: boolean }>
   modules: Array<{ id: string; module_order: number; title: string; summary?: string | null; lessons: Array<{ id: string; global_order: number; title: string; publish_status: string }> }>
 }
 
@@ -137,6 +137,34 @@ interface AdminStudent {
   }>
 }
 
+interface CreateStudentResult {
+  ok: boolean
+  error?: string
+  message?: string
+  student?: {
+    id: string
+    full_name: string
+    email: string
+    whatsapp?: string | null
+    status: string
+    must_change_password: boolean
+  }
+  enrollment?: { id: string; status: string; cohort_id: string }
+  auth?: {
+    new_account: boolean
+    existing_account: boolean
+    temporary_password?: string | null
+  }
+}
+
+interface ResetPasswordResult {
+  ok: boolean
+  error?: string
+  full_name?: string
+  email?: string
+  temporary_password?: string
+}
+
 async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke('gestor-trafego-api', { body })
   if (error) throw new Error(error.message || 'Falha ao comunicar com a Central.')
@@ -150,6 +178,11 @@ const api = {
   complete: (lessonId: string) => invoke<{ ok: boolean; message: string }>({ action: 'student_complete', lesson_id: lessonId }),
   admin: () => invoke<AdminDashboard>({ action: 'admin_dashboard' }),
   adminStudent: (enrollmentId: string) => invoke<AdminStudent>({ action: 'admin_student', enrollment_id: enrollmentId }),
+  createStudent: (payload: { full_name: string; email: string; whatsapp: string }) =>
+    invoke<CreateStudentResult>({ action: 'admin_create_student', ...payload }),
+  resetStudentPassword: (enrollmentId: string) =>
+    invoke<ResetPasswordResult>({ action: 'admin_reset_student_password', enrollment_id: enrollmentId }),
+  passwordChanged: () => invoke<{ ok: boolean; error?: string }>({ action: 'student_password_changed' }),
   setAccess: (enrollmentId: string, lessonId: string, allowed: boolean) =>
     invoke<{ ok: boolean; error?: string; message?: string }>({
       action: 'admin_set_student_access',
@@ -288,6 +321,64 @@ function Login({ hasSession }: { hasSession: boolean }) {
         <small className="help">Problemas para acessar? Fale com a equipe Live Connect.</small>
       </form>
     </section>
+  </div>
+}
+
+function PasswordSetupPage({ name }: { name: string }) {
+  const [password,setPassword]=useState('')
+  const [confirm,setConfirm]=useState('')
+  const [saving,setSaving]=useState(false)
+  const [error,setError]=useState('')
+
+  const strongEnough =
+    password.length >= 10 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[0-9]/.test(password)
+
+  const submit=async(e:FormEvent)=>{
+    e.preventDefault()
+    setError('')
+    if(!strongEnough) return setError('Use pelo menos 10 caracteres, com maiúscula, minúscula e número.')
+    if(password!==confirm) return setError('As senhas não coincidem.')
+
+    setSaving(true)
+    try{
+      const { error:updateError }=await supabase.auth.updateUser({password})
+      if(updateError) throw updateError
+      const result=await api.passwordChanged()
+      if(!result.ok) throw new Error('Não foi possível concluir a atualização da senha.')
+      window.location.assign('/aluno')
+    }catch(e){
+      setError((e as Error).message || 'Não foi possível alterar sua senha.')
+    }finally{
+      setSaving(false)
+    }
+  }
+
+  const logout=async()=>{ await supabase.auth.signOut(); window.location.assign('/login') }
+
+  return <div className="password-setup">
+    <div className="password-brand"><Brand/></div>
+    <form className="password-card" onSubmit={submit}>
+      <span className="setup-icon"><KeyRound size={24}/></span>
+      <span className="eyebrow">Primeiro acesso</span>
+      <h1>Crie sua senha pessoal</h1>
+      <p>Olá, {name.split(' ')[0]}. A senha recebida foi temporária. Antes de acessar as aulas, escolha uma senha só sua.</p>
+
+      <label>Nova senha<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" required/></label>
+      <label>Confirmar nova senha<input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" required/></label>
+
+      <div className="password-rules">
+        <span className={password.length>=10?'ok':''}><CheckCircle2 size={15}/> 10 ou mais caracteres</span>
+        <span className={/[A-Z]/.test(password)&&/[a-z]/.test(password)?'ok':''}><CheckCircle2 size={15}/> Letras maiúsculas e minúsculas</span>
+        <span className={/[0-9]/.test(password)?'ok':''}><CheckCircle2 size={15}/> Pelo menos um número</span>
+      </div>
+
+      {error&&<div className="error" role="alert">{error}</div>}
+      <button className="primary wide" disabled={saving}>{saving?'Salvando…':'Salvar senha e entrar'}</button>
+      <button type="button" className="button-link setup-logout" onClick={logout}>Sair desta conta</button>
+    </form>
   </div>
 }
 
@@ -432,6 +523,11 @@ function AdminPage() {
   const [search,setSearch]=useState('')
   const [busy,setBusy]=useState('')
   const [refreshing,setRefreshing]=useState(false)
+  const [modalMode,setModalMode]=useState<'create'|'credentials'|null>(null)
+  const [studentForm,setStudentForm]=useState({full_name:'',email:'',whatsapp:''})
+  const [creating,setCreating]=useState(false)
+  const [credential,setCredential]=useState<{source:'create'|'reset';full_name:string;email:string;temporary_password?:string|null;existing_account?:boolean}|null>(null)
+  const [copied,setCopied]=useState('')
   const [error,setError]=useState('')
 
   const load=()=>api.admin().then(setData).catch(e=>setError(e.message))
@@ -453,6 +549,8 @@ function AdminPage() {
     estrutura: { eyebrow:'Estrutura acadêmica', title:'6 módulos · 24 aulas', description:'Acompanhe a organização da formação e o status de publicação de cada aula.' }
   } as const
   const currentCopy = viewCopy[view as keyof typeof viewCopy] || viewCopy.overview
+  const canManageStudents = data?.role==='owner' || data?.role==='coordenador'
+  const seatsRemaining = Math.max(0,(data?.cohort.capacity || 0)-(data?.students.length || 0))
 
   if (!data && !error) return <Loading text="Abrindo painel da equipe…"/>
   if (!data) return <Failure text={error}/>
@@ -471,13 +569,128 @@ function AdminPage() {
     finally{setBusy('')}
   }
 
+  const friendlyStudentError=(code?:string,message?:string)=>{
+    if(message) return message
+    if(code==='cohort_full') return 'A Turma 01 já atingiu o limite de 10 alunos.'
+    if(code==='staff_account_cannot_be_student') return 'Este e-mail pertence a uma conta da equipe e não pode ser matriculado como aluno.'
+    if(code==='email_already_linked_to_another_user') return 'Este e-mail já está vinculado a outro acesso.'
+    if(code==='auth_user_conflict') return 'Já existe uma conta com este e-mail. Tente novamente para vinculá-la.'
+    if(code==='student_management_permission_required') return 'Seu perfil não possui permissão para cadastrar alunos.'
+    return 'Não foi possível concluir o cadastro. Tente novamente.'
+  }
+
+  const openCreate=()=>{
+    setError('')
+    setCredential(null)
+    setStudentForm({full_name:'',email:'',whatsapp:''})
+    setModalMode('create')
+  }
+
+  const createStudent=async(e:FormEvent)=>{
+    e.preventDefault()
+    setCreating(true)
+    setError('')
+    try{
+      const result=await api.createStudent(studentForm)
+      if(!result.ok) throw new Error(friendlyStudentError(result.error,result.message))
+      setCredential({
+        source:'create',
+        full_name:result.student?.full_name || studentForm.full_name,
+        email:result.student?.email || studentForm.email,
+        temporary_password:result.auth?.temporary_password,
+        existing_account:result.auth?.existing_account
+      })
+      setModalMode('credentials')
+      setData(await api.admin())
+    }catch(e){
+      setError((e as Error).message)
+    }finally{
+      setCreating(false)
+    }
+  }
+
+  const resetPassword=async()=>{
+    if(!student) return
+    setBusy('reset-password')
+    setError('')
+    try{
+      const result=await api.resetStudentPassword(student.enrollment.id)
+      if(!result.ok || !result.temporary_password) throw new Error('Não foi possível gerar uma nova senha temporária.')
+      setCredential({
+        source:'reset',
+        full_name:result.full_name || student.student.full_name,
+        email:result.email || student.student.email || '',
+        temporary_password:result.temporary_password,
+        existing_account:false
+      })
+      setModalMode('credentials')
+    }catch(e){
+      setError((e as Error).message)
+    }finally{
+      setBusy('')
+    }
+  }
+
+  const copyValue=async(value:string,label:string)=>{
+    try{
+      await navigator.clipboard.writeText(value)
+      setCopied(label)
+      window.setTimeout(()=>setCopied(''),1600)
+    }catch{
+      setCopied('')
+    }
+  }
+
+  const studentDialog=modalMode ? <div className="modal-backdrop" role="presentation" onMouseDown={e=>{if(e.currentTarget===e.target)setModalMode(null)}}>
+    <section className="student-modal" role="dialog" aria-modal="true" aria-labelledby="student-modal-title">
+      <button className="modal-close" onClick={()=>setModalMode(null)} aria-label="Fechar"><X size={18}/></button>
+      {modalMode==='create' ? <>
+        <span className="setup-icon small"><UserPlus size={21}/></span>
+        <span className="eyebrow">Nova matrícula</span>
+        <h2 id="student-modal-title">Cadastrar aluno</h2>
+        <p>O aluno será vinculado à Turma 01 e receberá acesso à Central. Restam <strong>{seatsRemaining} vagas</strong>.</p>
+        <form className="student-form" onSubmit={createStudent}>
+          <label>Nome completo<input value={studentForm.full_name} onChange={e=>setStudentForm({...studentForm,full_name:e.target.value})} required minLength={3} placeholder="Nome completo do aluno"/></label>
+          <label>E-mail<input type="email" value={studentForm.email} onChange={e=>setStudentForm({...studentForm,email:e.target.value})} required placeholder="aluno@exemplo.com"/></label>
+          <label>WhatsApp<input value={studentForm.whatsapp} onChange={e=>setStudentForm({...studentForm,whatsapp:e.target.value})} placeholder="(73) 99999-9999"/></label>
+          <div className="form-note"><ShieldCheck size={17}/><span>Se o e-mail ainda não existir no Supabase, uma conta será criada com senha temporária e troca obrigatória no primeiro acesso.</span></div>
+          {error&&<div className="error">{error}</div>}
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={()=>setModalMode(null)}>Cancelar</button>
+            <button className="primary" disabled={creating||seatsRemaining===0}>{creating?'Criando acesso…':<><Plus size={17}/> Criar matrícula e acesso</>}</button>
+          </div>
+        </form>
+      </> : <>
+        <span className="setup-icon small success-icon"><CheckCircle2 size={21}/></span>
+        <span className="eyebrow">{credential?.source==='reset'?'Acesso redefinido':'Matrícula concluída'}</span>
+        <h2 id="student-modal-title">{credential?.source==='reset'?'Nova senha temporária':'Aluno cadastrado'}</h2>
+        <p>{credential?.existing_account
+          ? 'Este e-mail já possuía uma conta no Supabase. A matrícula foi vinculada sem alterar a senha existente.'
+          : 'Envie os dados abaixo ao aluno por um canal seguro. A senha temporária deverá ser trocada no primeiro acesso.'}</p>
+
+        <div className="credential-box">
+          <span><small>Aluno</small><strong>{credential?.full_name}</strong></span>
+          <span><small>E-mail</small><strong>{credential?.email}</strong><button onClick={()=>copyValue(credential?.email||'','email')}><Copy size={15}/>{copied==='email'?'Copiado':'Copiar'}</button></span>
+          {credential?.temporary_password&&<span className="password-line"><small>Senha temporária</small><strong>{credential.temporary_password}</strong><button onClick={()=>copyValue(credential.temporary_password||'','senha')}><Copy size={15}/>{copied==='senha'?'Copiado':'Copiar'}</button></span>}
+        </div>
+
+        {!credential?.temporary_password&&<div className="form-note"><KeyRound size={17}/><span>O aluno deve entrar com a senha que já utiliza. Se necessário, abra o cadastro dele e use “Redefinir senha”.</span></div>}
+        <div className="modal-actions single"><button className="primary" onClick={()=>{setModalMode(null);setError('')}}>Concluir</button></div>
+      </>}
+    </section>
+  </div> : null
+
   if (student) return <Shell mode="admin" name="Equipe Live Connect">
     <div className="admin-page">
       <button className="back button-link" onClick={()=>setStudent(null)}><ArrowLeft size={18}/> Voltar à turma</button>
       <header className="page-head">
-        <div><span className="eyebrow">Liberação individual</span><h1>{student.student.full_name}</h1><p>A decisão individual prevalece sobre a liberação geral da turma.</p></div>
-        <span className="pill">{student.lessons.filter(l=>l.status==='completed').length}/24 concluídas</span>
+        <div><span className="eyebrow">Acompanhamento individual</span><h1>{student.student.full_name}</h1><p>Controle o acesso às aulas e gerencie a credencial deste aluno.</p></div>
+        <div className="head-actions">
+          {canManageStudents&&<button className="secondary compact" onClick={resetPassword} disabled={busy==='reset-password'}><KeyRound size={16}/>{busy==='reset-password'?'Gerando…':'Redefinir senha'}</button>}
+          <span className="pill">{student.lessons.filter(l=>l.status==='completed').length}/24 concluídas</span>
+        </div>
       </header>
+      {studentDialog}
       {error&&<div className="error admin-error">{error}</div>}
       <div className="access-list">{student.lessons.map(l=>{
         const ready=l.publish_status==='published'
@@ -502,12 +715,14 @@ function AdminPage() {
           <p>{currentCopy.description}</p>
         </div>
         <div className="head-actions">
+          {view==='turma'&&canManageStudents&&<button className="primary compact" onClick={openCreate} disabled={seatsRemaining===0}><UserPlus size={16}/>{seatsRemaining===0?'Turma completa':'Cadastrar aluno'}</button>}
           <button className="secondary compact" onClick={refresh} disabled={refreshing}>
             <RefreshCw size={16} className={refreshing?'spin':''}/>{refreshing?'Atualizando…':'Atualizar'}
           </button>
           <span className="pill"><ShieldCheck size={15}/> Progressão manual</span>
         </div>
       </header>
+      {studentDialog}
 
       {view==='overview' && <>
         <section className="kpis">
@@ -569,7 +784,9 @@ function AdminPage() {
           <span className="empty-icon"><UsersRound size={32}/></span>
           <h3>A turma ainda não possui alunos vinculados</h3>
           <p>Assim que as primeiras matrículas forem associadas à Turma 01, você poderá acompanhar progresso e liberar aulas individualmente.</p>
-          <Link className="secondary" to="/admin#estrutura">Revisar estrutura do curso</Link>
+          {canManageStudents&&seatsRemaining>0
+            ? <button className="primary" onClick={openCreate}><UserPlus size={17}/> Cadastrar primeiro aluno</button>
+            : <Link className="secondary" to="/admin#estrutura">Revisar estrutura do curso</Link>}
         </div>}
       </section>}
 
@@ -638,6 +855,11 @@ function SessionRouter({session}:{session:Session}) {
 
   const staff=Boolean(context.staff)
   const student=Boolean(context.student&&context.enrollment)
+  const mustChangePassword=Boolean(context.student?.must_change_password)
+
+  if(student && mustChangePassword && !staff){
+    return <Routes><Route path="*" element={<PasswordSetupPage name={context.student?.full_name || 'Aluno'}/>}/></Routes>
+  }
 
   return <Routes>
     <Route path="/admin/*" element={staff?<AdminPage/>:<Navigate to="/aluno" replace/>}/>

@@ -21,3 +21,15 @@
   .structure-summary{grid-template-columns:1fr 1fr}
   .empty-state.refined{min-height:300px;padding:24px 16px}
 }
+
+@media(max-width:620px){
+  .password-brand{position:static;margin-bottom:18px;justify-self:start}
+  .password-setup{display:flex;min-height:100vh;flex-direction:column;justify-content:center;padding:20px 14px}
+  .password-card{padding:25px 18px;border-radius:21px}
+  .password-card h1{font-size:1.72rem}
+  .student-modal{padding:24px 17px 18px;border-radius:20px}
+  .modal-actions{display:grid;grid-template-columns:1fr}
+  .modal-actions .secondary,.modal-actions .primary{width:100%}
+  .credential-box>span{grid-template-columns:1fr}
+  .credential-box button{justify-self:start}
+}

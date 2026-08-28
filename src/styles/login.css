@@ -1,1 +1,33 @@
 .login{min-height:100vh;display:grid;grid-template-columns:minmax(430px,1.08fr) minmax(420px,.92fr)}.login-visual{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:clamp(38px,6vw,76px);color:#fff;background:radial-gradient(circle at 80% 20%,rgba(25,103,255,.32),transparent 27%),linear-gradient(145deg,#041229,#061a3a 50%,#0a3472)}.login-visual:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:48px 48px;opacity:.35}.login-visual>*{position:relative;z-index:1}.login-visual .brand img{width:220px}.login-copy{max-width:700px;margin:80px 0 40px}.login-copy h1{max-width:760px;margin:14px 0 18px;font-size:clamp(2.8rem,5vw,5.1rem);line-height:.98;letter-spacing:-.06em}.login-copy p{max-width:620px;margin:0;color:#c2d6f3;line-height:1.72}.login-stats{display:flex;gap:12px}.login-stats span{min-width:125px;padding:16px 18px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.06)}.login-stats strong,.login-stats small{display:block}.login-stats strong{font-size:1.3rem}.login-stats small{color:#a9c2e5}.login-form-wrap{display:grid;place-items:center;padding:36px;background:linear-gradient(#f8fbff,#eef4fb)}.login-card{width:min(100%,470px);padding:38px;border:1px solid #e0e9f3;border-radius:28px;background:#fff;box-shadow:0 28px 80px rgba(18,45,83,.13)}.secure{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:#eaf2ff;color:#0a4ed6;font-size:.72rem;font-weight:850}.login-card h2{margin:22px 0 7px;font-size:2rem;letter-spacing:-.045em}.login-card>p{margin:0 0 25px;color:var(--muted)}.login-card label{display:grid;gap:7px;margin:14px 0;color:#344d6b;font-size:.8rem;font-weight:800}.login-card input{min-height:52px;padding:0 14px;border:1px solid #cad7e6;border-radius:12px;background:#fbfdff;outline:0}.login-card input:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(11,92,255,.08)}.help{display:block;margin-top:18px;text-align:center;color:#7c8fa6}.login-visual .brand{width:fit-content;padding:10px 14px;border-radius:14px;background:#fff;box-shadow:0 12px 32px rgba(0,0,0,.14)}
+
+.password-setup{
+  min-height:100vh;display:grid;place-items:center;padding:34px 18px;
+  background:
+    radial-gradient(circle at 15% 15%,rgba(23,111,255,.12),transparent 28%),
+    linear-gradient(180deg,#f7faff,#eef4fb)
+}
+.password-brand{position:fixed;top:24px;left:28px}
+.password-brand .brand{
+  width:fit-content;padding:9px 12px;border:1px solid #dce6f1;border-radius:13px;background:#fff;
+  box-shadow:0 8px 24px rgba(12,39,78,.07)
+}
+.password-brand .brand img{width:165px}
+.password-card{
+  width:min(100%,500px);padding:34px;border:1px solid #dfe7f1;border-radius:26px;background:#fff;
+  box-shadow:0 26px 70px rgba(15,44,84,.12)
+}
+.setup-icon{
+  width:52px;height:52px;display:grid;place-items:center;margin-bottom:14px;border-radius:15px;
+  background:#eaf2ff;color:#0b5cff
+}
+.password-card h1{margin:8px 0 8px;font-size:2rem;letter-spacing:-.05em;color:#102949}
+.password-card>p{margin:0 0 23px;color:#6b7e96;font-size:.82rem;line-height:1.62}
+.password-card label{display:grid;gap:7px;margin-top:13px;color:#344d6b;font-size:.77rem;font-weight:800}
+.password-card input{
+  min-height:50px;padding:0 13px;border:1px solid #cad7e6;border-radius:11px;background:#fbfdff;outline:0
+}
+.password-card input:focus{border-color:#0b5cff;box-shadow:0 0 0 4px rgba(11,92,255,.07)}
+.password-rules{display:grid;gap:7px;margin:15px 0}
+.password-rules span{display:flex;align-items:center;gap:7px;color:#8a9aab;font-size:.69rem}
+.password-rules span.ok{color:#087453}
+.setup-logout{display:block;margin:17px auto 0;color:#71839a;font-size:.7rem;font-weight:800}
