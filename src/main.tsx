@@ -10,16 +10,42 @@ import {
 } from 'lucide-react'
 import './styles.css'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
-const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined
+type SupabaseClientType = ReturnType<typeof createClient>
 
-if (!supabaseUrl || !publishableKey) {
-  throw new Error('Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.')
+let supabase: SupabaseClientType
+
+async function resolveSupabaseConfig() {
+  const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined
+
+  if (envUrl && envKey) {
+    return { supabaseUrl: envUrl, publishableKey: envKey }
+  }
+
+  const response = await fetch(
+    'https://utfxjadpntvbrhnkghbf.supabase.co/functions/v1/gestor-trafego-config',
+    { cache: 'no-store' }
+  )
+
+  if (!response.ok) {
+    throw new Error('Não foi possível carregar a configuração da Central.')
+  }
+
+  const config = await response.json() as {
+    ok: boolean
+    supabaseUrl?: string
+    publishableKey?: string
+  }
+
+  if (!config.ok || !config.supabaseUrl || !config.publishableKey) {
+    throw new Error('Configuração da Central incompleta.')
+  }
+
+  return {
+    supabaseUrl: config.supabaseUrl,
+    publishableKey: config.publishableKey
+  }
 }
-
-const supabase = createClient(supabaseUrl, publishableKey, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-})
 
 type LessonStatus = 'not_started' | 'in_progress' | 'completed'
 type StaffRole = 'owner' | 'professor' | 'coordenador' | 'suporte'
@@ -510,6 +536,29 @@ function App() {
   </Routes>
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode><BrowserRouter><App/></BrowserRouter></StrictMode>
-)
+async function bootstrap() {
+  const config = await resolveSupabaseConfig()
+
+  supabase = createClient(config.supabaseUrl, config.publishableKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  })
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode><BrowserRouter><App/></BrowserRouter></StrictMode>
+  )
+}
+
+bootstrap().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : 'Falha inesperada ao iniciar a Central.'
+  const root = document.getElementById('root')
+  if (root) {
+    root.innerHTML = `
+      <main style="min-height:100vh;display:grid;place-items:center;padding:32px;background:#f4f7fb;font-family:Inter,system-ui,sans-serif;color:#10233f">
+        <section style="max-width:560px;padding:32px;border:1px solid #dce5f0;border-radius:20px;background:white;box-shadow:0 14px 40px rgba(12,39,78,.09);text-align:center">
+          <h1 style="margin:0 0 10px;font-size:1.8rem">Não foi possível iniciar a Central.</h1>
+          <p style="margin:0;color:#6b7e96;line-height:1.6">${message}</p>
+        </section>
+      </main>
+    `
+  }
+})
