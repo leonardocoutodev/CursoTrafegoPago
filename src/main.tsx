@@ -59,6 +59,11 @@ function formatCpf(value: string) {
     .replace(/\.(\d{3})(\d)/,'.$1-$2')
 }
 
+function maskCpf(value: string) {
+  const cpf=normalizeCpf(value)
+  return cpf.length===11 ? `***.***.***-${cpf.slice(-2)}` : 'CPF não informado'
+}
+
 function validCpf(value: string) {
   const cpf=normalizeCpf(value)
   if(cpf.length!==11 || /^(\d)\1{10}$/.test(cpf)) return false
@@ -299,7 +304,7 @@ function Shell({ mode, name, children }: { mode: 'student'|'admin'; name?: strin
         <small>{mode === 'student' ? 'Área do aluno' : 'Área da equipe'}</small>
       </div>
       <nav>{items.map(([to, Icon, label]) =>
-        <Link key={label} to={to} className={isActive(to) ? 'nav active' : 'nav'}><Icon size={19}/>{label}</Link>
+        <Link key={label} to={to} aria-current={isActive(to)?'location':undefined} className={isActive(to) ? 'nav active' : 'nav'}><Icon size={19}/>{label}</Link>
       )}</nav>
       <div className="sidebar-foot">
         <div className="avatar">{(name || 'LC').split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()}</div>
@@ -309,7 +314,7 @@ function Shell({ mode, name, children }: { mode: 'student'|'admin'; name?: strin
     </aside>
     <main>{children}</main>
     <nav className="mobile-nav">{items.map(([to, Icon, label]) =>
-      <Link key={label} to={to} className={isActive(to) ? 'active' : ''}><Icon size={19}/><small>{label}</small></Link>
+      <Link key={label} to={to} aria-current={isActive(to)?'location':undefined} className={isActive(to) ? 'active' : ''}><Icon size={19}/><small>{label}</small></Link>
     )}</nav>
   </div>
 }
@@ -373,8 +378,8 @@ function Login({ hasSession }: { hasSession: boolean }) {
         <p>{mode==='student'?'Aluno, entre com seu CPF e sua senha.':'Acesso reservado à equipe Live Connect.'}</p>
 
         <div className="login-mode" role="tablist" aria-label="Tipo de acesso">
-          <button type="button" className={mode==='student'?'active':''} onClick={()=>changeMode('student')}>Aluno</button>
-          <button type="button" className={mode==='staff'?'active':''} onClick={()=>changeMode('staff')}>Equipe</button>
+          <button type="button" role="tab" aria-selected={mode==='student'} className={mode==='student'?'active':''} onClick={()=>changeMode('student')}>Aluno</button>
+          <button type="button" role="tab" aria-selected={mode==='staff'} className={mode==='staff'?'active':''} onClick={()=>changeMode('staff')}>Equipe</button>
         </div>
 
         {mode==='student'
@@ -742,7 +747,7 @@ function AdminPage() {
         <h2 id="student-modal-title">Cadastrar aluno</h2>
         <p>O aluno será vinculado à Turma 01 e receberá acesso à Central. Restam <strong>{seatsRemaining} vagas</strong>.</p>
         <form className="student-form" onSubmit={createStudent}>
-          <label>Nome completo<input value={studentForm.full_name} onChange={e=>setStudentForm({...studentForm,full_name:e.target.value})} required minLength={3} placeholder="Nome completo do aluno"/></label>
+          <label>Nome completo<input autoFocus value={studentForm.full_name} onChange={e=>setStudentForm({...studentForm,full_name:e.target.value})} required minLength={3} placeholder="Nome completo do aluno"/></label>
           <label>CPF<input inputMode="numeric" value={formatCpf(studentForm.cpf)} onChange={e=>setStudentForm({...studentForm,cpf:normalizeCpf(e.target.value)})} required maxLength={14} placeholder="000.000.000-00"/><small className="field-help">O CPF será o login do aluno.</small></label>
           <label>E-mail de contato <small className="optional">opcional</small><input type="email" value={studentForm.email} onChange={e=>setStudentForm({...studentForm,email:e.target.value})} placeholder="aluno@exemplo.com"/></label>
           <label>WhatsApp<input value={studentForm.whatsapp} onChange={e=>setStudentForm({...studentForm,whatsapp:e.target.value})} placeholder="(73) 99999-9999"/></label>
@@ -869,7 +874,7 @@ function AdminPage() {
         {filtered.length ? <div className="student-table">{filtered.map(s=>
           <button className="student-row" key={s.enrollment_id} onClick={()=>openStudent(s.enrollment_id)}>
             <span className="avatar">{s.full_name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()}</span>
-            <span className="identity"><strong>{s.full_name}</strong><small>{s.cpf?formatCpf(s.cpf):'CPF não informado'}{s.whatsapp?' · '+s.whatsapp:''}</small></span>
+            <span className="identity"><strong>{s.full_name}</strong><small>{s.cpf?maskCpf(s.cpf):'CPF não informado'}{s.whatsapp?' · '+s.whatsapp:''}</small></span>
             <span className="metric"><strong>{s.completed_lessons}</strong><small>concluídas</small></span>
             <span className="metric"><strong>{s.available_lessons}</strong><small>liberadas</small></span>
             <ChevronRight size={19}/>
