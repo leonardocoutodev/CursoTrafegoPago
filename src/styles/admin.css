@@ -213,3 +213,10 @@
   background:#edf4ff;color:#0b5cff;font-size:.64rem;font-weight:800
 }
 .password-line strong{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.03em}
+
+.student-form .field-help{
+  margin-top:-3px;color:#71849b;font-size:.61rem;font-weight:600
+}
+.student-form .optional{
+  display:inline;margin-left:5px;color:#8a9aac;font-size:.59rem;font-weight:650
+}

@@ -47,6 +47,38 @@ async function resolveSupabaseConfig() {
   }
 }
 
+function normalizeCpf(value: string) {
+  return value.replace(/\D/g,'').slice(0,11)
+}
+
+function formatCpf(value: string) {
+  const cpf=normalizeCpf(value)
+  return cpf
+    .replace(/^(\d{3})(\d)/,'$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/,'.$1-$2')
+}
+
+function validCpf(value: string) {
+  const cpf=normalizeCpf(value)
+  if(cpf.length!==11 || /^(\d)\1{10}$/.test(cpf)) return false
+  const calc=(base:string,factor:number)=>{
+    let total=0
+    for(const char of base) total+=Number(char)*factor--
+    const result=(total*10)%11
+    return result===10?0:result
+  }
+  const d1=calc(cpf.slice(0,9),10)
+  const d2=calc(cpf.slice(0,9)+String(d1),11)
+  return d1===Number(cpf[9]) && d2===Number(cpf[10])
+}
+
+async function loginEmailFromCpf(value: string) {
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(normalizeCpf(value)))
+  const hex=Array.from(new Uint8Array(digest)).map(byte=>byte.toString(16).padStart(2,'0')).join('')
+  return `cpf-${hex}@login.liveconnect.local`
+}
+
 type LessonStatus = 'not_started' | 'in_progress' | 'completed'
 type StaffRole = 'owner' | 'professor' | 'coordenador' | 'suporte'
 
@@ -116,7 +148,7 @@ interface AdminDashboard {
   role: string
   course: { title: string; subtitle?: string | null; workload_hours: number; expected_months: number; total_lessons: number; gate_mode: string }
   cohort: { id: string; name: string; status: string; capacity: number; starts_on?: string | null; start_time: string; end_time: string }
-  students: Array<{ enrollment_id: string; full_name: string; email?: string | null; whatsapp?: string | null; enrollment_status: string; completed_lessons: number; available_lessons: number; must_change_password?: boolean }>
+  students: Array<{ enrollment_id: string; full_name: string; cpf?: string | null; email?: string | null; whatsapp?: string | null; enrollment_status: string; completed_lessons: number; available_lessons: number; must_change_password?: boolean }>
   modules: Array<{ id: string; module_order: number; title: string; summary?: string | null; lessons: Array<{ id: string; global_order: number; title: string; publish_status: string }> }>
 }
 
@@ -144,7 +176,8 @@ interface CreateStudentResult {
   student?: {
     id: string
     full_name: string
-    email: string
+    cpf: string
+    email?: string | null
     whatsapp?: string | null
     status: string
     must_change_password: boolean
@@ -161,6 +194,7 @@ interface ResetPasswordResult {
   ok: boolean
   error?: string
   full_name?: string
+  cpf?: string
   email?: string
   temporary_password?: string
 }
@@ -178,7 +212,7 @@ const api = {
   complete: (lessonId: string) => invoke<{ ok: boolean; message: string }>({ action: 'student_complete', lesson_id: lessonId }),
   admin: () => invoke<AdminDashboard>({ action: 'admin_dashboard' }),
   adminStudent: (enrollmentId: string) => invoke<AdminStudent>({ action: 'admin_student', enrollment_id: enrollmentId }),
-  createStudent: (payload: { full_name: string; email: string; whatsapp: string }) =>
+  createStudent: (payload: { full_name: string; cpf: string; email: string; whatsapp: string }) =>
     invoke<CreateStudentResult>({ action: 'admin_create_student', ...payload }),
   resetStudentPassword: (enrollmentId: string) =>
     invoke<ResetPasswordResult>({ action: 'admin_reset_student_password', enrollment_id: enrollmentId }),
@@ -282,20 +316,43 @@ function Shell({ mode, name, children }: { mode: 'student'|'admin'; name?: strin
 
 function Login({ hasSession }: { hasSession: boolean }) {
   const navigate = useNavigate()
-  const [email,setEmail] = useState('')
+  const [mode,setMode] = useState<'student'|'staff'>('student')
+  const [identifier,setIdentifier] = useState('')
   const [password,setPassword] = useState('')
   const [loading,setLoading] = useState(false)
   const [error,setError] = useState('')
 
   if (hasSession) return <Navigate to="/" replace/>
 
+  const changeMode=(next:'student'|'staff')=>{
+    setMode(next)
+    setIdentifier('')
+    setPassword('')
+    setError('')
+  }
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+
+    let authEmail=''
+    if(mode==='student'){
+      if(!validCpf(identifier)) return setError('Informe um CPF válido.')
+      authEmail=await loginEmailFromCpf(identifier)
+    }else{
+      authEmail=identifier.trim().toLowerCase()
+      if(!authEmail.includes('@')) return setError('Informe o e-mail da equipe.')
+    }
+
     setLoading(true)
-    const { error: loginError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email: authEmail, password })
     setLoading(false)
-    if (loginError) return setError('Não foi possível entrar. Confira seu e-mail e senha.')
+
+    if (loginError) {
+      return setError(mode==='student'
+        ? 'Não foi possível entrar. Confira seu CPF e sua senha.'
+        : 'Não foi possível entrar. Confira seu e-mail e sua senha.')
+    }
     navigate('/', { replace: true })
   }
 
@@ -313,12 +370,36 @@ function Login({ hasSession }: { hasSession: boolean }) {
       <form className="login-card" onSubmit={submit}>
         <span className="secure"><LockKeyhole size={16}/> Acesso seguro</span>
         <h2>Bem-vindo à Central</h2>
-        <p>Entre com os dados cadastrados pela Live Connect.</p>
-        <label>E-mail<input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" required placeholder="seuemail@exemplo.com"/></label>
-        <label>Senha<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required placeholder="Sua senha"/></label>
+        <p>{mode==='student'?'Aluno, entre com seu CPF e sua senha.':'Acesso reservado à equipe Live Connect.'}</p>
+
+        <div className="login-mode" role="tablist" aria-label="Tipo de acesso">
+          <button type="button" className={mode==='student'?'active':''} onClick={()=>changeMode('student')}>Aluno</button>
+          <button type="button" className={mode==='staff'?'active':''} onClick={()=>changeMode('staff')}>Equipe</button>
+        </div>
+
+        {mode==='student'
+          ? <label>CPF<input
+              inputMode="numeric"
+              value={formatCpf(identifier)}
+              onChange={e=>setIdentifier(normalizeCpf(e.target.value))}
+              autoComplete="username"
+              required
+              placeholder="000.000.000-00"
+              maxLength={14}
+            /></label>
+          : <label>E-mail da equipe<input
+              type="email"
+              value={identifier}
+              onChange={e=>setIdentifier(e.target.value)}
+              autoComplete="username"
+              required
+              placeholder="seuemail@exemplo.com"
+            /></label>}
+
+        <label>Senha<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required placeholder={mode==='student'?'Senha temporária ou pessoal':'Sua senha'}/></label>
         {error && <div className="error" role="alert">{error}</div>}
         <button className="primary wide" disabled={loading}>{loading ? 'Entrando…' : <>Entrar na Central <ArrowRight size={18}/></>}</button>
-        <small className="help">Problemas para acessar? Fale com a equipe Live Connect.</small>
+        <small className="help">{mode==='student'?'No primeiro acesso, a senha temporária deverá ser substituída.':'Problemas para acessar? Verifique sua conta administrativa.'}</small>
       </form>
     </section>
   </div>
@@ -524,9 +605,9 @@ function AdminPage() {
   const [busy,setBusy]=useState('')
   const [refreshing,setRefreshing]=useState(false)
   const [modalMode,setModalMode]=useState<'create'|'credentials'|null>(null)
-  const [studentForm,setStudentForm]=useState({full_name:'',email:'',whatsapp:''})
+  const [studentForm,setStudentForm]=useState({full_name:'',cpf:'',email:'',whatsapp:''})
   const [creating,setCreating]=useState(false)
-  const [credential,setCredential]=useState<{source:'create'|'reset';full_name:string;email:string;temporary_password?:string|null;existing_account?:boolean}|null>(null)
+  const [credential,setCredential]=useState<{source:'create'|'reset';full_name:string;cpf:string;email?:string|null;temporary_password?:string|null;existing_account?:boolean}|null>(null)
   const [copied,setCopied]=useState('')
   const [error,setError]=useState('')
 
@@ -539,7 +620,15 @@ function AdminPage() {
     finally { setRefreshing(false) }
   }
   useEffect(()=>{load()},[])
-  const filtered=useMemo(()=>data?.students.filter(s=>s.full_name.toLowerCase().includes(search.toLowerCase()))||[],[data,search])
+  const filtered=useMemo(()=>{
+    const term=search.trim().toLowerCase()
+    const digits=normalizeCpf(search)
+    return data?.students.filter(s=>
+      s.full_name.toLowerCase().includes(term) ||
+      Boolean(digits && s.cpf?.includes(digits)) ||
+      Boolean(search && s.whatsapp?.toLowerCase().includes(term))
+    )||[]
+  },[data,search])
   const view = location.hash.replace('#','') || 'overview'
   const publishedLessons = data?.modules.flatMap(m=>m.lessons).filter(l=>l.publish_status==='published').length || 0
   const viewCopy = {
@@ -572,9 +661,10 @@ function AdminPage() {
   const friendlyStudentError=(code?:string,message?:string)=>{
     if(message) return message
     if(code==='cohort_full') return 'A Turma 01 já atingiu o limite de 10 alunos.'
-    if(code==='staff_account_cannot_be_student') return 'Este e-mail pertence a uma conta da equipe e não pode ser matriculado como aluno.'
-    if(code==='email_already_linked_to_another_user') return 'Este e-mail já está vinculado a outro acesso.'
-    if(code==='auth_user_conflict') return 'Já existe uma conta com este e-mail. Tente novamente para vinculá-la.'
+    if(code==='staff_account_cannot_be_student') return 'Este acesso pertence à equipe e não pode ser matriculado como aluno.'
+    if(code==='invalid_cpf') return 'Informe um CPF válido.'
+    if(code==='cpf_already_linked_to_another_user') return 'Este CPF já está vinculado a outro acesso.'
+    if(code==='auth_user_conflict') return 'Já existe um acesso técnico para este CPF. Tente novamente.'
     if(code==='student_management_permission_required') return 'Seu perfil não possui permissão para cadastrar alunos.'
     return 'Não foi possível concluir o cadastro. Tente novamente.'
   }
@@ -582,7 +672,7 @@ function AdminPage() {
   const openCreate=()=>{
     setError('')
     setCredential(null)
-    setStudentForm({full_name:'',email:'',whatsapp:''})
+    setStudentForm({full_name:'',cpf:'',email:'',whatsapp:''})
     setModalMode('create')
   }
 
@@ -596,7 +686,8 @@ function AdminPage() {
       setCredential({
         source:'create',
         full_name:result.student?.full_name || studentForm.full_name,
-        email:result.student?.email || studentForm.email,
+        cpf:result.student?.cpf || normalizeCpf(studentForm.cpf),
+        email:result.student?.email || studentForm.email || null,
         temporary_password:result.auth?.temporary_password,
         existing_account:result.auth?.existing_account
       })
@@ -619,7 +710,8 @@ function AdminPage() {
       setCredential({
         source:'reset',
         full_name:result.full_name || student.student.full_name,
-        email:result.email || student.student.email || '',
+        cpf:result.cpf || '',
+        email:result.email || student.student.email || null,
         temporary_password:result.temporary_password,
         existing_account:false
       })
@@ -651,9 +743,10 @@ function AdminPage() {
         <p>O aluno será vinculado à Turma 01 e receberá acesso à Central. Restam <strong>{seatsRemaining} vagas</strong>.</p>
         <form className="student-form" onSubmit={createStudent}>
           <label>Nome completo<input value={studentForm.full_name} onChange={e=>setStudentForm({...studentForm,full_name:e.target.value})} required minLength={3} placeholder="Nome completo do aluno"/></label>
-          <label>E-mail<input type="email" value={studentForm.email} onChange={e=>setStudentForm({...studentForm,email:e.target.value})} required placeholder="aluno@exemplo.com"/></label>
+          <label>CPF<input inputMode="numeric" value={formatCpf(studentForm.cpf)} onChange={e=>setStudentForm({...studentForm,cpf:normalizeCpf(e.target.value)})} required maxLength={14} placeholder="000.000.000-00"/><small className="field-help">O CPF será o login do aluno.</small></label>
+          <label>E-mail de contato <small className="optional">opcional</small><input type="email" value={studentForm.email} onChange={e=>setStudentForm({...studentForm,email:e.target.value})} placeholder="aluno@exemplo.com"/></label>
           <label>WhatsApp<input value={studentForm.whatsapp} onChange={e=>setStudentForm({...studentForm,whatsapp:e.target.value})} placeholder="(73) 99999-9999"/></label>
-          <div className="form-note"><ShieldCheck size={17}/><span>Se o e-mail ainda não existir no Supabase, uma conta será criada com senha temporária e troca obrigatória no primeiro acesso.</span></div>
+          <div className="form-note"><ShieldCheck size={17}/><span>O acesso será criado com o CPF do aluno e uma senha temporária. No primeiro login, a troca da senha continua obrigatória.</span></div>
           {error&&<div className="error">{error}</div>}
           <div className="modal-actions">
             <button type="button" className="secondary" onClick={()=>setModalMode(null)}>Cancelar</button>
@@ -665,16 +758,17 @@ function AdminPage() {
         <span className="eyebrow">{credential?.source==='reset'?'Acesso redefinido':'Matrícula concluída'}</span>
         <h2 id="student-modal-title">{credential?.source==='reset'?'Nova senha temporária':'Aluno cadastrado'}</h2>
         <p>{credential?.existing_account
-          ? 'Este e-mail já possuía uma conta no Supabase. A matrícula foi vinculada sem alterar a senha existente.'
-          : 'Envie os dados abaixo ao aluno por um canal seguro. A senha temporária deverá ser trocada no primeiro acesso.'}</p>
+          ? 'Este CPF já possuía um acesso vinculado. A matrícula foi associada sem alterar a senha existente.'
+          : 'Envie CPF e senha temporária ao aluno por um canal seguro. A troca da senha continuará obrigatória no primeiro acesso.'}</p>
 
         <div className="credential-box">
           <span><small>Aluno</small><strong>{credential?.full_name}</strong></span>
-          <span><small>E-mail</small><strong>{credential?.email}</strong><button onClick={()=>copyValue(credential?.email||'','email')}><Copy size={15}/>{copied==='email'?'Copiado':'Copiar'}</button></span>
+          <span><small>CPF — login</small><strong>{formatCpf(credential?.cpf||'')}</strong><button onClick={()=>copyValue(formatCpf(credential?.cpf||''),'cpf')}><Copy size={15}/>{copied==='cpf'?'Copiado':'Copiar'}</button></span>
+          {credential?.email&&<span><small>E-mail de contato</small><strong>{credential.email}</strong></span>}
           {credential?.temporary_password&&<span className="password-line"><small>Senha temporária</small><strong>{credential.temporary_password}</strong><button onClick={()=>copyValue(credential.temporary_password||'','senha')}><Copy size={15}/>{copied==='senha'?'Copiado':'Copiar'}</button></span>}
         </div>
 
-        {!credential?.temporary_password&&<div className="form-note"><KeyRound size={17}/><span>O aluno deve entrar com a senha que já utiliza. Se necessário, abra o cadastro dele e use “Redefinir senha”.</span></div>}
+        {!credential?.temporary_password&&<div className="form-note"><KeyRound size={17}/><span>O aluno deve entrar com o CPF e a senha que já utiliza. Se necessário, abra o cadastro dele e use “Redefinir senha”.</span></div>}
         <div className="modal-actions single"><button className="primary" onClick={()=>{setModalMode(null);setError('')}}>Concluir</button></div>
       </>}
     </section>
@@ -775,7 +869,7 @@ function AdminPage() {
         {filtered.length ? <div className="student-table">{filtered.map(s=>
           <button className="student-row" key={s.enrollment_id} onClick={()=>openStudent(s.enrollment_id)}>
             <span className="avatar">{s.full_name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()}</span>
-            <span className="identity"><strong>{s.full_name}</strong><small>{s.email||s.whatsapp||'Contato não informado'}</small></span>
+            <span className="identity"><strong>{s.full_name}</strong><small>{s.cpf?formatCpf(s.cpf):'CPF não informado'}{s.whatsapp?' · '+s.whatsapp:''}</small></span>
             <span className="metric"><strong>{s.completed_lessons}</strong><small>concluídas</small></span>
             <span className="metric"><strong>{s.available_lessons}</strong><small>liberadas</small></span>
             <ChevronRight size={19}/>

@@ -31,3 +31,15 @@
 .password-rules span{display:flex;align-items:center;gap:7px;color:#8a9aab;font-size:.69rem}
 .password-rules span.ok{color:#087453}
 .setup-logout{display:block;margin:17px auto 0;color:#71839a;font-size:.7rem;font-weight:800}
+
+.login-mode{
+  display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:17px 0 6px;padding:4px;
+  border:1px solid #dce5f0;border-radius:12px;background:#f3f7fb
+}
+.login-mode button{
+  min-height:39px;border:0;border-radius:9px;background:transparent;color:#6d8098;
+  font-size:.73rem;font-weight:850;transition:.18s ease
+}
+.login-mode button.active{
+  background:#fff;color:#0b5cff;box-shadow:0 3px 12px rgba(12,39,78,.08)
+}
