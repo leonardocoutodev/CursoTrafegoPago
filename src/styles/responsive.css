@@ -33,3 +33,35 @@
   .credential-box>span{grid-template-columns:1fr}
   .credential-box button{justify-self:start}
 }
+
+@media(max-width:1120px){
+  .student-overview-grid{grid-template-columns:1fr 1fr}
+  .student-focus-card{grid-column:1/-1}
+  .student-resource-grid{grid-template-columns:1fr 1fr}
+  .performance-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:760px){
+  .student-page{max-width:none}
+  .student-overview-grid{grid-template-columns:1fr}
+  .student-focus-card{grid-column:auto}
+  .student-workspace{min-height:0;padding:16px}
+  .learning-status-grid{grid-template-columns:1fr 1fr}
+  .learning-status-grid span:nth-child(3),.learning-status-grid span:nth-child(4){border-top:1px solid #e4ebf3}
+  .student-resource-grid{grid-template-columns:1fr}
+  .performance-hero{align-items:flex-start}
+  .performance-hero .progress-ring{position:static;transform:scale(.82);transform-origin:center}
+  .performance-grid{grid-template-columns:1fr 1fr}
+  .student-progress-numbers{grid-template-columns:repeat(3,1fr)}
+  .onboarding-brand{position:static;justify-self:start;margin-bottom:17px}
+  .onboarding-page{display:flex;flex-direction:column;justify-content:center;padding:20px 14px}
+  .onboarding-card{padding:25px 19px;border-radius:22px}
+}
+@media(max-width:520px){
+  .performance-grid{grid-template-columns:1fr}
+  .performance-hero{display:grid}
+  .performance-hero .progress-ring{justify-self:center}
+  .student-progress-numbers{gap:5px}
+  .student-progress-numbers span{padding:9px 6px}
+  .onboarding-actions{display:grid;grid-template-columns:1fr}
+  .onboarding-actions .secondary,.onboarding-actions .primary{width:100%}
+}
