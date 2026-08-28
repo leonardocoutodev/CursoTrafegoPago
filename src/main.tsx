@@ -5,7 +5,7 @@ import { createClient, type Session } from '@supabase/supabase-js'
 import {
   ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2,
   ChevronDown, ChevronRight, Clock3, GraduationCap, LayoutDashboard,
-  LockKeyhole, LogOut, MapPin, Search, ShieldCheck, Sparkles, Trophy,
+  LockKeyhole, LogOut, MapPin, RefreshCw, Search, ShieldCheck, Sparkles, Trophy,
   UsersRound
 } from 'lucide-react'
 import './styles.css'
@@ -426,15 +426,33 @@ function LessonPage() {
 }
 
 function AdminPage() {
+  const location = useLocation()
   const [data,setData]=useState<AdminDashboard|null>(null)
   const [student,setStudent]=useState<AdminStudent|null>(null)
   const [search,setSearch]=useState('')
   const [busy,setBusy]=useState('')
+  const [refreshing,setRefreshing]=useState(false)
   const [error,setError]=useState('')
 
   const load=()=>api.admin().then(setData).catch(e=>setError(e.message))
+  const refresh=async()=>{
+    setRefreshing(true)
+    setError('')
+    try { setData(await api.admin()) }
+    catch(e) { setError((e as Error).message) }
+    finally { setRefreshing(false) }
+  }
   useEffect(()=>{load()},[])
   const filtered=useMemo(()=>data?.students.filter(s=>s.full_name.toLowerCase().includes(search.toLowerCase()))||[],[data,search])
+  const view = location.hash.replace('#','') || 'overview'
+  const publishedLessons = data?.modules.flatMap(m=>m.lessons).filter(l=>l.publish_status==='published').length || 0
+  const viewCopy = {
+    overview: { eyebrow:'Central da equipe', title:'Gestor de Tráfego Pago', description:'Acompanhe os indicadores essenciais e acesse rapidamente cada frente da formação.' },
+    turma: { eyebrow:'Gestão da turma', title:'Turma 01', description:'Consulte alunos, progresso e abra o controle individual de cada matrícula.' },
+    liberacao: { eyebrow:'Controle acadêmico', title:'Liberações', description:'Gerencie a progressão manual das aulas com segurança e rastreabilidade.' },
+    estrutura: { eyebrow:'Estrutura acadêmica', title:'6 módulos · 24 aulas', description:'Acompanhe a organização da formação e o status de publicação de cada aula.' }
+  } as const
+  const currentCopy = viewCopy[view as keyof typeof viewCopy] || viewCopy.overview
 
   if (!data && !error) return <Loading text="Abrindo painel da equipe…"/>
   if (!data) return <Failure text={error}/>
@@ -477,21 +495,66 @@ function AdminPage() {
 
   return <Shell mode="admin" name="Equipe Live Connect">
     <div className="admin-page">
-      <header className="page-head">
-        <div><span className="eyebrow">Central da equipe</span><h1>Gestor de Tráfego Pago</h1><p>Acompanhe a turma e controle o acesso às aulas.</p></div>
-        <span className="pill"><ShieldCheck size={15}/> Progressão manual</span>
+      <header className="page-head admin-head">
+        <div>
+          <span className="eyebrow">{currentCopy.eyebrow}</span>
+          <h1>{currentCopy.title}</h1>
+          <p>{currentCopy.description}</p>
+        </div>
+        <div className="head-actions">
+          <button className="secondary compact" onClick={refresh} disabled={refreshing}>
+            <RefreshCw size={16} className={refreshing?'spin':''}/>{refreshing?'Atualizando…':'Atualizar'}
+          </button>
+          <span className="pill"><ShieldCheck size={15}/> Progressão manual</span>
+        </div>
       </header>
 
-      <section className="kpis">
-        <article><UsersRound/><span><strong>{data.students.length}/{data.cohort.capacity}</strong><small>alunos</small></span></article>
-        <article><GraduationCap/><span><strong>{data.students.filter(s=>s.enrollment_status==='active').length}</strong><small>matrículas ativas</small></span></article>
-        <article><Clock3/><span><strong>Seg · 18h</strong><small>horário</small></span></article>
-        <article><ShieldCheck/><span><strong>Manual</strong><small>liberação</small></span></article>
-      </section>
+      {view==='overview' && <>
+        <section className="kpis">
+          <article><UsersRound/><span><strong>{data.students.length}/{data.cohort.capacity}</strong><small>alunos na turma</small></span></article>
+          <article><GraduationCap/><span><strong>{data.students.filter(s=>s.enrollment_status==='active').length}</strong><small>matrículas ativas</small></span></article>
+          <article><BookOpen/><span><strong>{publishedLessons}/24</strong><small>aulas publicadas</small></span></article>
+          <article><Clock3/><span><strong>Seg · 18h</strong><small>encontro presencial</small></span></article>
+        </section>
 
-      <section id="turma" className="block">
+        <section className="overview-grid">
+          <article className="overview-card featured">
+            <div>
+              <span className="overview-icon"><UsersRound size={22}/></span>
+              <span className="eyebrow">Turma 01</span>
+              <h2>{data.students.length ? data.students.length+' alunos vinculados' : 'Turma pronta para receber alunos'}</h2>
+              <p>Capacidade de {data.cohort.capacity} participantes. Acompanhamento individual de progresso e liberações.</p>
+            </div>
+            <Link className="primary" to="/admin#turma">Gerenciar turma <ArrowRight size={17}/></Link>
+          </article>
+
+          <article className="overview-card">
+            <span className="overview-icon"><ShieldCheck size={22}/></span>
+            <span className="eyebrow">Governança</span>
+            <h3>Progressão sob controle</h3>
+            <p>As aulas permanecem fechadas até uma autorização explícita da equipe.</p>
+            <Link className="text-link" to="/admin#liberacao">Abrir liberações <ArrowRight size={15}/></Link>
+          </article>
+
+          <article className="overview-card">
+            <span className="overview-icon"><BookOpen size={22}/></span>
+            <span className="eyebrow">Conteúdo</span>
+            <h3>{publishedLessons} de 24 aulas publicadas</h3>
+            <p>A estrutura já está organizada em seis módulos e pronta para receber o conteúdo pedagógico.</p>
+            <Link className="text-link" to="/admin#estrutura">Ver estrutura <ArrowRight size={15}/></Link>
+          </article>
+        </section>
+
+        <section className="status-strip">
+          <div><span className="status-dot ok"/><span><strong>Backend acadêmico</strong><small>Operacional</small></span></div>
+          <div><span className="status-dot ok"/><span><strong>Progressão manual</strong><small>Ativa</small></span></div>
+          <div><span className="status-dot neutral"/><span><strong>Alunos vinculados</strong><small>{data.students.length} de {data.cohort.capacity}</small></span></div>
+        </section>
+      </>}
+
+      {view==='turma' && <section id="turma" className="workspace-card">
         <div className="block-head">
-          <div><span className="eyebrow">Turma 01</span><h2>Alunos e progresso</h2><p>Selecione um aluno para gerenciar o acesso individual.</p></div>
+          <div><span className="eyebrow">Turma 01</span><h2>Alunos e progresso</h2><p>Selecione um aluno para abrir o acompanhamento individual e controlar suas liberações.</p></div>
           <div className="search"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar aluno" aria-label="Buscar aluno"/></div>
         </div>
         {filtered.length ? <div className="student-table">{filtered.map(s=>
@@ -502,49 +565,56 @@ function AdminPage() {
             <span className="metric"><strong>{s.available_lessons}</strong><small>liberadas</small></span>
             <ChevronRight size={19}/>
           </button>
-        )}</div> : <div className="empty-state"><UsersRound size={42}/><h3>Nenhum aluno cadastrado ainda.</h3><p>Quando as matrículas forem vinculadas à Turma 01, os alunos aparecerão aqui.</p></div>}
-      </section>
+        )}</div> : <div className="empty-state refined">
+          <span className="empty-icon"><UsersRound size={32}/></span>
+          <h3>A turma ainda não possui alunos vinculados</h3>
+          <p>Assim que as primeiras matrículas forem associadas à Turma 01, você poderá acompanhar progresso e liberar aulas individualmente.</p>
+          <Link className="secondary" to="/admin#estrutura">Revisar estrutura do curso</Link>
+        </div>}
+      </section>}
 
-      <section id="liberacao" className="block">
+      {view==='liberacao' && <section id="liberacao" className="workspace-card">
         <div className="block-head">
-          <div>
-            <span className="eyebrow">Controle de acesso</span>
-            <h2>Liberações</h2>
-            <p>A progressão é manual e controlada pela equipe. Nenhuma conclusão libera a próxima aula automaticamente.</p>
-          </div>
+          <div><span className="eyebrow">Controle de acesso</span><h2>Governança da progressão</h2><p>As regras abaixo garantem que nenhuma aula avance sem uma ação explícita da equipe.</p></div>
         </div>
         <div className="release-grid">
           <article>
             <span className="release-icon"><UsersRound size={21}/></span>
             <h3>Liberação individual</h3>
-            <p>Selecione um aluno da turma para liberar ou bloquear aulas especificamente para ele.</p>
-            <Link className="secondary" to="/admin#turma">Ir para alunos</Link>
+            <p>Abra um aluno da turma para liberar ou bloquear uma aula especificamente para aquela matrícula.</p>
+            <Link className="secondary" to="/admin#turma">Selecionar aluno</Link>
           </article>
           <article>
             <span className="release-icon"><ShieldCheck size={21}/></span>
-            <h3>Regra de progressão</h3>
-            <p>A conclusão de uma aula registra o progresso, mas a aula seguinte permanece fechada até autorização.</p>
-            <span className="release-status"><CheckCircle2 size={16}/> Regra ativa</span>
+            <h3>Conclusão não libera a próxima</h3>
+            <p>Finalizar uma aula registra o progresso, mas não altera o acesso à etapa seguinte.</p>
+            <span className="release-status"><CheckCircle2 size={16}/> Regra protegida no backend</span>
           </article>
           <article>
             <span className="release-icon"><LockKeyhole size={21}/></span>
-            <h3>Proteção de conteúdo</h3>
-            <p>Uma aula sem conteúdo publicado não pode ser liberada acidentalmente pela equipe.</p>
+            <h3>Conteúdo não publicado permanece fechado</h3>
+            <p>Mesmo a equipe não consegue liberar uma aula enquanto seu conteúdo estiver em preparação.</p>
             <span className="release-status"><CheckCircle2 size={16}/> Proteção ativa</span>
           </article>
         </div>
-      </section>
+        {!data.students.length && <div className="inline-notice"><UsersRound size={18}/><span><strong>Nenhum aluno para gerenciar ainda.</strong> As liberações individuais ficarão disponíveis assim que houver uma matrícula vinculada.</span></div>}
+      </section>}
 
-      <section id="estrutura" className="block">
-        <div className="block-head"><div><span className="eyebrow">Estrutura acadêmica</span><h2>6 módulos · 24 aulas</h2><p>O conteúdo será inserido depois. Nenhuma aula é liberada por padrão.</p></div></div>
+      {view==='estrutura' && <section id="estrutura" className="workspace-card">
+        <div className="structure-summary">
+          <div><strong>6</strong><small>módulos</small></div>
+          <div><strong>24</strong><small>aulas</small></div>
+          <div><strong>{publishedLessons}</strong><small>publicadas</small></div>
+          <div><strong>{24-publishedLessons}</strong><small>em preparação</small></div>
+        </div>
         <div className="module-grid">{data.modules.map(m=>
           <article className="admin-module" key={m.id}>
-            <span className="number">{String(m.module_order).padStart(2,'0')}</span>
+            <div className="module-top"><span className="number">{String(m.module_order).padStart(2,'0')}</span><span className="module-badge">{m.lessons.filter(l=>l.publish_status==='published').length}/{m.lessons.length} publicadas</span></div>
             <h3>{m.title}</h3><p>{m.summary}</p>
-            {m.lessons.map(l=><div className="admin-lesson" key={l.id}><strong>{String(l.global_order).padStart(2,'0')}</strong><span>{l.title}</span><small>{l.publish_status==='published'?'Publicado':'Conteúdo pendente'}</small></div>)}
+            {m.lessons.map(l=><div className="admin-lesson" key={l.id}><strong>{String(l.global_order).padStart(2,'0')}</strong><span>{l.title}</span><small className={l.publish_status==='published'?'published':''}>{l.publish_status==='published'?'Publicado':'Pendente'}</small></div>)}
           </article>
         )}</div>
-      </section>
+      </section>}
     </div>
   </Shell>
 }
