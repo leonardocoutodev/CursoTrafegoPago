@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { createClient, type Session } from '@supabase/supabase-js'
 import {
   ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2,
@@ -160,7 +160,29 @@ const api = {
 }
 
 function Brand() {
-  return <div className="brand"><img src="/logo-live-connect.png" alt="Live Connect Escola de Profissões" /></div>
+  return <div className="brand"><img src="/logo-live-connect.svg" alt="Live Connect Escola de Profissões" /></div>
+}
+
+function ScrollToHash() {
+  const location = useLocation()
+
+  useEffect(() => {
+    const hash = location.hash.replace('#', '')
+
+    if (!hash) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(hash)
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 40)
+
+    return () => window.clearTimeout(timer)
+  }, [location.pathname, location.hash])
+
+  return null
 }
 
 function ProgressRing({ value }: { value: number }) {
@@ -180,6 +202,7 @@ function ProgressRing({ value }: { value: number }) {
 
 function Shell({ mode, name, children }: { mode: 'student'|'admin'; name?: string; children: ReactNode }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const logout = async () => { await supabase.auth.signOut(); navigate('/login', { replace: true }) }
   const student = [
     ['/aluno', LayoutDashboard, 'Visão geral'],
@@ -194,6 +217,11 @@ function Shell({ mode, name, children }: { mode: 'student'|'admin'; name?: strin
     ['/admin#estrutura', BookOpen, 'Estrutura']
   ] as const
   const items = mode === 'student' ? student : admin
+  const isActive = (to: string) => {
+    const [path, hash] = to.split('#')
+    if (location.pathname !== path) return false
+    return hash ? location.hash === '#' + hash : !location.hash
+  }
 
   return <div className="shell">
     <aside className="sidebar">
@@ -203,8 +231,8 @@ function Shell({ mode, name, children }: { mode: 'student'|'admin'; name?: strin
         <strong>Gestor de Tráfego</strong>
         <small>{mode === 'student' ? 'Área do aluno' : 'Área da equipe'}</small>
       </div>
-      <nav>{items.map(([to, Icon, label], i) =>
-        <Link key={label} to={to} className={i === 0 ? 'nav active' : 'nav'}><Icon size={19}/>{label}</Link>
+      <nav>{items.map(([to, Icon, label]) =>
+        <Link key={label} to={to} className={isActive(to) ? 'nav active' : 'nav'}><Icon size={19}/>{label}</Link>
       )}</nav>
       <div className="sidebar-foot">
         <div className="avatar">{(name || 'LC').split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()}</div>
@@ -214,7 +242,7 @@ function Shell({ mode, name, children }: { mode: 'student'|'admin'; name?: strin
     </aside>
     <main>{children}</main>
     <nav className="mobile-nav">{items.map(([to, Icon, label]) =>
-      <Link key={label} to={to}><Icon size={19}/><small>{label}</small></Link>
+      <Link key={label} to={to} className={isActive(to) ? 'active' : ''}><Icon size={19}/><small>{label}</small></Link>
     )}</nav>
   </div>
 }
@@ -477,6 +505,36 @@ function AdminPage() {
         )}</div> : <div className="empty-state"><UsersRound size={42}/><h3>Nenhum aluno cadastrado ainda.</h3><p>Quando as matrículas forem vinculadas à Turma 01, os alunos aparecerão aqui.</p></div>}
       </section>
 
+      <section id="liberacao" className="block">
+        <div className="block-head">
+          <div>
+            <span className="eyebrow">Controle de acesso</span>
+            <h2>Liberações</h2>
+            <p>A progressão é manual e controlada pela equipe. Nenhuma conclusão libera a próxima aula automaticamente.</p>
+          </div>
+        </div>
+        <div className="release-grid">
+          <article>
+            <span className="release-icon"><UsersRound size={21}/></span>
+            <h3>Liberação individual</h3>
+            <p>Selecione um aluno da turma para liberar ou bloquear aulas especificamente para ele.</p>
+            <Link className="secondary" to="/admin#turma">Ir para alunos</Link>
+          </article>
+          <article>
+            <span className="release-icon"><ShieldCheck size={21}/></span>
+            <h3>Regra de progressão</h3>
+            <p>A conclusão de uma aula registra o progresso, mas a aula seguinte permanece fechada até autorização.</p>
+            <span className="release-status"><CheckCircle2 size={16}/> Regra ativa</span>
+          </article>
+          <article>
+            <span className="release-icon"><LockKeyhole size={21}/></span>
+            <h3>Proteção de conteúdo</h3>
+            <p>Uma aula sem conteúdo publicado não pode ser liberada acidentalmente pela equipe.</p>
+            <span className="release-status"><CheckCircle2 size={16}/> Proteção ativa</span>
+          </article>
+        </div>
+      </section>
+
       <section id="estrutura" className="block">
         <div className="block-head"><div><span className="eyebrow">Estrutura acadêmica</span><h2>6 módulos · 24 aulas</h2><p>O conteúdo será inserido depois. Nenhuma aula é liberada por padrão.</p></div></div>
         <div className="module-grid">{data.modules.map(m=>
@@ -530,10 +588,13 @@ function App() {
 
   if(session===undefined)return <Loading text="Carregando Central…"/>
 
-  return <Routes>
-    <Route path="/login" element={<Login hasSession={Boolean(session)}/>}/>
-    <Route path="/*" element={session?<SessionRouter session={session}/>:<Navigate to="/login" replace/>}/>
-  </Routes>
+  return <>
+    <ScrollToHash/>
+    <Routes>
+      <Route path="/login" element={<Login hasSession={Boolean(session)}/>}/>
+      <Route path="/*" element={session?<SessionRouter session={session}/>:<Navigate to="/login" replace/>}/>
+    </Routes>
+  </>
 }
 
 async function bootstrap() {
